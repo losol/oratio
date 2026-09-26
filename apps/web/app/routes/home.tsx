@@ -4,7 +4,13 @@
 
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { logout, type MatrixClient, parseUserId, startClient } from '@eventuras/oratio-core';
+import {
+  logout,
+  type MatrixClient,
+  Preset,
+  parseUserId,
+  startClient,
+} from '@eventuras/oratio-core';
 import { useRooms, useTimeline } from '@eventuras/oratio-react';
 import { ChatChannelList, ChatLog } from '@eventuras/ratio-ui/chat';
 import { Button } from '@eventuras/ratio-ui/core/Button';
@@ -45,6 +51,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const roomId = activeId ?? rooms[0]?.id ?? null;
   const messages = useTimeline(client, roomId, { locale: 'nb-NO' });
+  const encrypted = rooms.find((room) => room.id === roomId)?.encrypted ?? false;
   const me = parseUserId(client?.getUserId() ?? '')?.localpart;
 
   // ChatLog leaves scrolling to the caller: follow new messages.
@@ -66,7 +73,9 @@ export default function Home() {
   async function createRoom() {
     const name = window.prompt('Navn på rommet');
     if (!client || !name) return;
-    const { room_id } = await client.createRoom({ name, preset: 'public_chat' as never });
+    // Invite-only: on a federated server a public room is open to anyone
+    // who learns its ID.
+    const { room_id } = await client.createRoom({ name, preset: Preset.PrivateChat });
     setActiveId(room_id);
   }
 
@@ -96,18 +105,25 @@ export default function Home() {
         <div ref={logRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <ChatLog aria-label="Meldinger" me={me} messages={messages} />
         </div>
-        <form onSubmit={send} style={{ display: 'flex', gap: 8, padding: '12px 22px 14px' }}>
-          <Input
-            name="text"
-            aria-label="Melding"
-            placeholder={client ? 'Skriv en melding' : 'Kobler til…'}
-            autoComplete="off"
-            style={{ flex: 1 }}
-          />
-          <Button type="submit" isDisabled={!roomId}>
-            Send
-          </Button>
-        </form>
+        {encrypted ? (
+          <p role="status" style={{ padding: '12px 22px 14px' }}>
+            Dette rommet er ende-til-ende-kryptert. oratio kan ikke lese eller sende krypterte
+            meldinger ennå, så bruk Element her.
+          </p>
+        ) : (
+          <form onSubmit={send} style={{ display: 'flex', gap: 8, padding: '12px 22px 14px' }}>
+            <Input
+              name="text"
+              aria-label="Melding"
+              placeholder={client ? 'Skriv en melding' : 'Kobler til…'}
+              autoComplete="off"
+              style={{ flex: 1 }}
+            />
+            <Button type="submit" isDisabled={!roomId}>
+              Send
+            </Button>
+          </form>
+        )}
       </main>
     </div>
   );

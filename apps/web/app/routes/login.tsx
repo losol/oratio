@@ -3,19 +3,23 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLoaderData, useNavigate } from 'react-router';
 import { beginOidcLogin, loginWithPassword } from '@eventuras/oratio-core';
 import { Button } from '@eventuras/ratio-ui/core/Button';
 import { Heading } from '@eventuras/ratio-ui/core/Heading';
 import { Text } from '@eventuras/ratio-ui/core/Text';
 import { TextField } from '@eventuras/ratio-ui/forms';
-import { defaultHomeserverUrl, savePendingLogin, saveSession } from '../session';
+import { loadConfig } from '../config';
+import { loadClientId, saveClientId, savePendingLogin, saveSession } from '../session';
+
+export const clientLoader = () => loadConfig();
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : 'Innlogging feilet';
 }
 
 export default function Login() {
+  const { homeserverUrl } = useLoaderData<typeof clientLoader>();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,10 +31,12 @@ export default function Login() {
     try {
       const origin = window.location.origin;
       const { url, pending } = await beginOidcLogin({
-        homeserverUrl: defaultHomeserverUrl,
+        homeserverUrl,
         clientUri: `${origin}/`,
         redirectUri: `${origin}/auth/callback`,
+        clientId: loadClientId(homeserverUrl) ?? undefined,
       });
+      saveClientId(homeserverUrl, pending.clientId);
       savePendingLogin(pending);
       window.location.assign(url);
     } catch (err) {
@@ -46,7 +52,7 @@ export default function Login() {
     setError(null);
     try {
       const session = await loginWithPassword({
-        homeserverUrl: String(form.get('homeserver')),
+        homeserverUrl,
         username: String(form.get('username')),
         password: String(form.get('password')),
       });
@@ -71,7 +77,6 @@ export default function Login() {
           <Text as="span">Logg inn med passord</Text>
         </summary>
         <form onSubmit={signInWithPassword}>
-          <TextField name="homeserver" label="Server" defaultValue={defaultHomeserverUrl} />
           <TextField name="username" label="Brukernavn" autoComplete="username" />
           <TextField
             name="password"
