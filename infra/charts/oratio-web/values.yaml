@@ -1,11 +1,13 @@
 # oratio web client.
 #
-# Required: homeserverUrl, and hostname while httpRoute.enabled (the default).
+# Required: image.tag, homeserverUrl, and hostname while httpRoute.enabled
+# (the default).
 
 image:
   registry: ghcr.io
   repository: losol/oratio-web
-  # Defaults to the chart's appVersion.
+  # Required. oratio CI publishes main-<sha> for every merge to main; there is
+  # no moving tag such as :main or :latest.
   tag: ""
   pullPolicy: IfNotPresent
 

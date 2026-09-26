@@ -3,5 +3,4 @@ name: oratio-web
 description: oratio, the Matrix web client on ratio-ui, served by Caddy
 type: application
 version: 0.1.0
-appVersion: "main"
 home: https://github.com/losol/oratio

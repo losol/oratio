@@ -27,8 +27,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 {{- end -}}
 
+{{- /* No fallback: CI publishes only main-<sha>, so there is no tag to default to. */ -}}
 {{- define "oratio-web.tag" -}}
-{{- default .Chart.AppVersion .Values.image.tag -}}
+{{- required "image.tag is required, e.g. main-1a2b3c4 (published by oratio CI)" .Values.image.tag -}}
 {{- end -}}
 
 {{- define "oratio-web.homeserverUrl" -}}
