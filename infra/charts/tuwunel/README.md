@@ -23,9 +23,9 @@ serverName: example.org
 hostname: matrix.example.org
 existingSecret: tuwunel-secrets   # key keycloak_client_secret
 oidc:
-  # Only our own apps may register a client, so the approval page can go.
-  allowedRedirectHosts: [chat.example.org]
-  requireClientApproval: false
+  # Trusted clients: no approval page, and no one else can register.
+  # Hosts for web apps, URI schemes for native ones (Element X).
+  allowedRedirectHosts: [chat.example.org, app.element.io, io.element.elementx]
 identityProviders:
   - brand: Keycloak
     name: Example ID
@@ -44,6 +44,10 @@ changes and is always a valid localpart, giving IDs like
 display name. `preferred_username` gives readable IDs, but tessera-otp creates
 users with their email as username, which is not a valid localpart, and
 Tuwunel then falls back to a random one.
+
+Without an allowlist, any client can register, and Tuwunel shows its
+unstyled "Authorize application" page at every sign-in, also for a client
+that signed in before.
 
 Register a confidential client in Keycloak with the redirect URI
 `https://matrix.example.org/_matrix/client/unstable/login/sso/callback/tuwunel`.
