@@ -1,0 +1,12 @@
+{
+  "extends": "@eventuras/typescript-config/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "rootDirs": [".", "./.react-router/types"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["app/**/*", "*.ts", ".react-router/types/**/*"]
+}
