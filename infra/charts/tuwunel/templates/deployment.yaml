@@ -1,21 +1,25 @@
+{{- $needsSecret := or .Values.registration.enabled (gt (len .Values.identityProviders) 0) -}}
+{{- if and $needsSecret (not .Values.existingSecret) }}
+{{- fail "existingSecret is required when registration or identityProviders are enabled" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tuwunel
+  name: {{ include "tuwunel.fullname" . }}
   labels:
-    app: tuwunel
+    {{- include "tuwunel.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tuwunel
-  # Single RocksDB on a RWO volume — never run two pods at once.
+      {{- include "tuwunel.selectorLabels" . | nindent 6 }}
+  # One RocksDB on a ReadWriteOnce volume: never run two pods at once.
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: tuwunel
+        {{- include "tuwunel.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
@@ -23,9 +27,9 @@ spec:
         {{- end }}
     spec:
       automountServiceAccountToken: false
-      # The Service is named "tuwunel", so K8s would inject TUWUNEL_* service
-      # env vars (e.g. TUWUNEL_PORT=tcp://…) that tuwunel parses as config and
-      # rejects. Disable service links; the app uses DNS, not these vars.
+      # Kubernetes injects <SERVICE>_PORT-style env vars for every Service in the
+      # namespace. A Service named like "tuwunel" yields TUWUNEL_PORT=tcp://…,
+      # which Tuwunel reads as config and rejects. Tuwunel uses DNS anyway.
       enableServiceLinks: false
       {{- with .Values.podSecurityContext }}
       securityContext:
@@ -33,8 +37,8 @@ spec:
       {{- end }}
       containers:
         - name: tuwunel
-          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ include "tuwunel.tag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -49,16 +53,18 @@ spec:
             {{- end }}
           ports:
             - name: http
-              containerPort: 8008
+              containerPort: {{ .Values.port }}
               protocol: TCP
           volumeMounts:
             - name: config
               mountPath: /etc/tuwunel/tuwunel.toml
               subPath: tuwunel.toml
               readOnly: true
-            - name: registration-token
-              mountPath: /run/secrets/tuwunel
+            {{- if .Values.existingSecret }}
+            - name: secrets
+              mountPath: {{ include "tuwunel.secretsDir" . }}
               readOnly: true
+            {{- end }}
             - name: data
               mountPath: /var/lib/tuwunel
             - name: tmp
@@ -82,19 +88,18 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ .Release.Name }}-config
-        - name: registration-token
+            name: {{ include "tuwunel.fullname" . }}
+        {{- if .Values.existingSecret }}
+        - name: secrets
           secret:
-            secretName: {{ .Values.registration.secretName | default "tuwunel-secrets" }}
-            items:
-              - key: registration_token
-                path: registration_token
+            secretName: {{ .Values.existingSecret }}
+        {{- end }}
         - name: tmp
           emptyDir: {}
         - name: data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-data
+            claimName: {{ include "tuwunel.fullname" . }}
           {{- else }}
           emptyDir: {}
           {{- end }}

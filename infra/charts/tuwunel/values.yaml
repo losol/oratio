@@ -1,0 +1,123 @@
+# Tuwunel Matrix homeserver.
+#
+# Required: serverName and hostname. Everything else has a working default for
+# a closed homeserver (no federation, no registration) behind a Gateway API route.
+
+image:
+  registry: ghcr.io
+  repository: matrix-construct/tuwunel
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+# PERMANENT identity: baked into every user and room ID (@name:serverName).
+# Changing it after the first user signs up means wiping the database.
+serverName: ""
+# The host the homeserver itself answers on, e.g. matrix.example.org.
+hostname: ""
+
+port: 8008
+logLevel: info
+
+federation:
+  enabled: false
+  trustedServers:
+    - matrix.org
+
+# Secret holding the files Tuwunel reads at runtime, mounted at
+# /run/secrets/tuwunel/<key>. Keys used by this chart:
+#   registration_token            when registration.enabled
+#   <identityProvider.clientSecretKey>  one per identity provider
+# The chart never creates it: make it with Infisical, kubectl or similar.
+existingSecret: ""
+
+registration:
+  # Password registration, gated by the registration_token key in existingSecret.
+  enabled: false
+
+# Discovery: what /.well-known/matrix/{client,server} answer. The OIDC server
+# also needs wellKnown.client. Defaults to https://<hostname>.
+wellKnown:
+  client: ""
+  # host:port other servers federate with. Defaults to <hostname>:443.
+  server: ""
+  # Serve /.well-known/matrix/ on the serverName host too, when it differs from
+  # hostname (server_name example.org, homeserver on matrix.example.org).
+  delegation:
+    enabled: false
+    # Defaults to serverName.
+    hostname: ""
+    # Gateway listener for that host.
+    sectionName: ""
+
+# Tuwunel's OAuth 2.0 / OIDC server (next-gen auth, MSC3861) that clients such
+# as oratio and Element X sign in through. It hands the login on to the
+# identity providers below.
+oidc:
+  # Hosts that dynamically registered clients may redirect to. Empty allows any.
+  allowedRedirectHosts: []
+  # Show Tuwunel's "Authorize application" page before issuing a code. Turn it
+  # off only together with allowedRedirectHosts, so no foreign client can sign
+  # users in unasked.
+  requireClientApproval: true
+
+tokens:
+  # Seconds. Clients that refresh are soft-logged-out after this.
+  accessTokenTtl: 604800
+  # Seconds. 0 means refresh tokens never expire.
+  refreshTokenTtl: 0
+
+# Upstream OIDC providers for single sign-on, e.g. Keycloak (tessera-idp).
+identityProviders: []
+#  - brand: Keycloak
+#    name: Losol ID
+#    # Tuwunel ties stored identities to this: never change it once in use.
+#    clientId: tuwunel
+#    issuerUrl: https://id.losol.no/realms/losol
+#    # Key in existingSecret holding the client secret.
+#    clientSecretKey: keycloak_client_secret
+#    # Optional: override discovery, e.g. to reach the IdP on a cluster-internal URL.
+#    discoveryUrl: ""
+#    # Defaults to https://<hostname>/_matrix/client/unstable/login/sso/callback/<clientId>
+#    callbackUrl: ""
+#    # Our own IdP: a matching username signs in as the existing Matrix user.
+#    trusted: true
+#    # Claims tried in order for the localpart of new users.
+#    useridClaims: [preferred_username]
+#    # Let this provider create new accounts.
+#    registration: true
+
+# Appended to the [global] table as-is, for settings the chart does not model.
+extraConfig: ""
+
+httpRoute:
+  enabled: true
+  gateway:
+    name: traefik-gateway
+    namespace: traefik
+    sectionName: ""
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
