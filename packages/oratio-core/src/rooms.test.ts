@@ -2,10 +2,18 @@ import { NotificationCountType } from 'matrix-js-sdk';
 import { describe, expect, it } from 'vitest';
 import { directRoomIds, type RoomLike, toOratioRoom } from './rooms';
 
-function room(id: string, name: string, total = 0, highlight = 0, members = 2): RoomLike {
+function room(
+  id: string,
+  name: string,
+  total = 0,
+  highlight = 0,
+  members = 2,
+  encrypted = false,
+): RoomLike {
   return {
     roomId: id,
     name,
+    hasEncryptionStateEvent: () => encrypted,
     getJoinedMemberCount: () => members,
     getUnreadNotificationCount: (type) =>
       type === NotificationCountType.Highlight ? highlight : total,
@@ -31,6 +39,13 @@ describe('toOratioRoom', () => {
       unread: 3,
       mention: true,
     });
+  });
+});
+
+describe('encrypted rooms', () => {
+  it('flags rooms with an encryption state event', () => {
+    expect(toOratioRoom(room('!e', 'hemmelig', 0, 0, 2, true), new Set()).encrypted).toBe(true);
+    expect(toOratioRoom(room('!p', 'åpent'), new Set())).not.toHaveProperty('encrypted');
   });
 });
 

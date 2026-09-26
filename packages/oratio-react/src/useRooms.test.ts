@@ -11,6 +11,7 @@ function fakeClient(names: string[]) {
     roomId: `!${name}`,
     name,
     getMyMembership: () => 'join',
+    hasEncryptionStateEvent: () => false,
     getJoinedMemberCount: () => 2,
     getUnreadNotificationCount: () => 0,
   });
