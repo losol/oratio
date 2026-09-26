@@ -1,28 +1,52 @@
-# Local Tuwunel homeserver for oratio development.
+# Local Tuwunel homeserver and Keycloak for oratio development.
 #
 #   docker compose -f dev/docker-compose.yml up -d
 #
-# Homeserver: http://localhost:8008, server_name `localhost`
-# (user IDs look like @leo:localhost). Registration takes the token `oratio-dev`.
-# Federation is off. Data lives in the `tuwunel-data` volume; `down -v` wipes it.
+# Tuwunel:  http://localhost:8008, server_name `localhost` (@ole:localhost).
+#           Config in tuwunel.toml. Password registration takes the token `oratio-dev`.
+# Keycloak: http://localhost:8080, realm `oratio` with the ratio login theme.
+#           Users ole, ingrid and tor, password `oratio`. Admin console: admin/admin.
+#
+# Data lives in the `tuwunel-data` volume; `down -v` wipes it. Keycloak is
+# re-imported from keycloak/oratio-realm.json on every fresh start.
 services:
   tuwunel:
     image: ghcr.io/matrix-construct/tuwunel:v1.9.3
     ports:
-      - "8008:8008"
+      - '8008:8008'
     environment:
-      TUWUNEL_SERVER_NAME: localhost
-      TUWUNEL_DATABASE_PATH: /var/lib/tuwunel
-      TUWUNEL_ADDRESS: '["0.0.0.0"]'
-      TUWUNEL_PORT: 8008
-      TUWUNEL_ALLOW_FEDERATION: "false"
-      TUWUNEL_ALLOW_REGISTRATION: "true"
-      TUWUNEL_REGISTRATION_TOKEN: oratio-dev
-      # Tuwunel appends a heart to new users' display names by default.
-      TUWUNEL_NEW_USER_DISPLAYNAME_SUFFIX: ''
-      TUWUNEL_LOG: info
+      TUWUNEL_CONFIG: /etc/tuwunel/tuwunel.toml
     volumes:
+      - ./tuwunel.toml:/etc/tuwunel/tuwunel.toml:ro
       - tuwunel-data:/var/lib/tuwunel
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  keycloak:
+    image: ghcr.io/losol/tessera-idp:0.1.2
+    command: ['start-dev', '--import-realm']
+    ports:
+      - '8080:8080'
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+      KC_HEALTH_ENABLED: 'true'
+    volumes:
+      - ./keycloak/oratio-realm.json:/opt/keycloak/data/import/oratio-realm.json:ro
+    healthcheck:
+      # The Keycloak image has no curl; bash can open a TCP socket itself.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 &&
+          grep -q UP <&3
+      interval: 5s
+      timeout: 5s
+      retries: 40
 
 volumes:
   tuwunel-data:

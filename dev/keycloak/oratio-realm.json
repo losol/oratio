@@ -1,0 +1,50 @@
+{
+  "realm": "oratio",
+  "enabled": true,
+  "displayName": "oratio (dev)",
+  "loginTheme": "ratio",
+  "registrationAllowed": false,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "tuwunel",
+      "name": "Tuwunel (dev)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "tuwunel-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:8008/_matrix/client/unstable/login/sso/callback/tuwunel"],
+      "webOrigins": ["http://localhost:8008"]
+    }
+  ],
+  "users": [
+    {
+      "username": "ole",
+      "email": "ole@example.test",
+      "emailVerified": true,
+      "firstName": "Ole",
+      "lastName": "Testesen",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "oratio", "temporary": false }]
+    },
+    {
+      "username": "ingrid",
+      "email": "ingrid@example.test",
+      "emailVerified": true,
+      "firstName": "Ingrid",
+      "lastName": "Testesen",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "oratio", "temporary": false }]
+    },
+    {
+      "username": "tor",
+      "email": "tor@example.test",
+      "emailVerified": true,
+      "firstName": "Tor",
+      "lastName": "Testesen",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "oratio", "temporary": false }]
+    }
+  ]
+}

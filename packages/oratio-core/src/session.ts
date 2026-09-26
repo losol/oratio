@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Losol AS
 // SPDX-License-Identifier: MPL-2.0
 
-import { createClient, type MatrixClient } from 'matrix-js-sdk';
+import { createClient, type MatrixClient, TokenRefresher } from 'matrix-js-sdk';
+import { oauthForSession } from './oidc';
 
 /** What it takes to resume a signed-in client. The caller decides where it is kept. */
 export interface OratioSession {
@@ -10,6 +11,10 @@ export interface OratioSession {
   userId: string;
   accessToken: string;
   deviceId: string;
+  /** Set for OIDC sign-ins: access tokens expire and are renewed with this. */
+  refreshToken?: string;
+  /** The client ID the homeserver registered for us, for OIDC sign-ins. */
+  oauthClientId?: string;
 }
 
 export interface PasswordLogin {
@@ -38,16 +43,37 @@ export async function loginWithPassword(login: PasswordLogin): Promise<OratioSes
   };
 }
 
+export interface StartClientOptions {
+  /** Called with the updated session when tokens are refreshed. Store it. */
+  onSessionChange?: (session: OratioSession) => void;
+}
+
 /**
- * Creates a client for a session and starts syncing. No end-to-end encryption:
- * encrypted rooms show up, but their messages cannot be read.
+ * Creates a client for a session and starts syncing. OIDC sessions refresh
+ * their access token as it expires. No end-to-end encryption: encrypted rooms
+ * show up, but their messages cannot be read.
  */
-export async function startClient(session: OratioSession): Promise<MatrixClient> {
+export async function startClient(
+  session: OratioSession,
+  options: StartClientOptions = {},
+): Promise<MatrixClient> {
+  let current = session;
+  const oauth = session.refreshToken ? await oauthForSession(session) : null;
+  const refresher = oauth
+    ? new TokenRefresher(oauth, async ({ accessToken, refreshToken }) => {
+        current = { ...current, accessToken, refreshToken };
+        options.onSessionChange?.(current);
+      })
+    : null;
   const client = createClient({
     baseUrl: session.homeserverUrl,
     userId: session.userId,
     accessToken: session.accessToken,
     deviceId: session.deviceId,
+    refreshToken: session.refreshToken,
+    tokenRefreshFunction: refresher?.tokenRefreshFunction,
+    // No voice or video: skip the TURN server lookup that calls need.
+    disableVoip: true,
   });
   await client.startClient({ initialSyncLimit: 50 });
   return client;

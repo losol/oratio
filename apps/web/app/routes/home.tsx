@@ -9,7 +9,7 @@ import { useRooms, useTimeline } from '@eventuras/oratio-react';
 import { ChatChannelList, ChatLog } from '@eventuras/ratio-ui/chat';
 import { Button } from '@eventuras/ratio-ui/core/Button';
 import { Input } from '@eventuras/ratio-ui/forms';
-import { clearSession, loadSession } from '../session';
+import { clearSession, loadSession, saveSession } from '../session';
 
 /** Starts a client for the stored session, or sends the user to /login. */
 function useClient(): MatrixClient | null {
@@ -24,7 +24,7 @@ function useClient(): MatrixClient | null {
     }
     let started: MatrixClient | null = null;
     let cancelled = false;
-    startClient(session).then((c) => {
+    startClient(session, { onSessionChange: saveSession }).then((c) => {
       started = c;
       if (cancelled) c.stopClient();
       else setClient(c);

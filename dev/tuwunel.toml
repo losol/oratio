@@ -1,0 +1,50 @@
+# Tuwunel config for local development. See dev/docker-compose.yml.
+
+[global]
+server_name = "localhost"
+database_path = "/var/lib/tuwunel"
+address = ["0.0.0.0"]
+port = 8008
+log = "info"
+
+allow_federation = false
+
+# Password registration stays open behind a token, for test users without Keycloak.
+allow_registration = true
+registration_token = "oratio-dev"
+
+# Tuwunel appends a heart to new users' display names by default.
+new_user_displayname_suffix = ""
+
+# oratio signs in through Tuwunel's OIDC server (next-gen auth, MSC3861), which
+# hands the login itself to Keycloak below. Only our own apps may register a
+# client: their redirect URIs must be on these hosts. That makes Tuwunel's
+# "Authorize application" page redundant, so it is off. A server that should
+# also accept third-party clients such as Element X keeps approval on instead.
+oidc_registration_allowed_redirect_hosts = ["localhost"]
+oidc_require_client_approval = false
+
+# Short-lived access tokens in development, so token refresh runs often
+# enough that a broken refresh shows up here and not in production.
+access_token_ttl = 300
+
+# The OIDC server builds its issuer and endpoints from the client base URL.
+[global.well_known]
+client = "http://localhost:8008"
+
+# Keycloak (tessera-idp) as identity provider. The browser reaches Keycloak on
+# localhost:8080, Tuwunel reaches it on keycloak:8080 inside the Compose network.
+# Keycloak keeps the issuer at localhost:8080 for both (KC_HOSTNAME) and answers
+# back-channel calls on the host they came in on (KC_HOSTNAME_BACKCHANNEL_DYNAMIC).
+[[global.identity_provider]]
+brand = "Keycloak"
+name = "Keycloak"
+client_id = "tuwunel"
+client_secret = "tuwunel-dev-secret"
+issuer_url = "http://localhost:8080/realms/oratio"
+discovery_url = "http://keycloak:8080/realms/oratio/.well-known/openid-configuration"
+callback_url = "http://localhost:8008/_matrix/client/unstable/login/sso/callback/tuwunel"
+# Our own IdP: a Keycloak username that matches an existing Matrix localpart
+# signs in as that user, so @ole:localhost from password sign-up is the same person.
+trusted = true
+userid_claims = ["preferred_username"]

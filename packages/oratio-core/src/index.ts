@@ -7,6 +7,12 @@
 export { ClientEvent, EventType, type MatrixClient, RoomEvent } from 'matrix-js-sdk';
 export { type MatrixUserId, parseUserId } from './ids';
 export {
+  beginOidcLogin,
+  completeOidcLogin,
+  type OidcLoginOptions,
+  type PendingOidcLogin,
+} from './oidc';
+export {
   directRoomIds,
   joinedRooms,
   type OratioRoom,
@@ -18,6 +24,7 @@ export {
   logout,
   type OratioSession,
   type PasswordLogin,
+  type StartClientOptions,
   startClient,
 } from './session';
 export {

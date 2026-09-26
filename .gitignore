@@ -27,3 +27,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# local TLS certificates (mkcert)
+dev/certs/

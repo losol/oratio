@@ -2,7 +2,7 @@
   "extends": "@eventuras/typescript-config/base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "rootDirs": [".", "./.react-router/types"],
     "noEmit": true,
     "declaration": false,

@@ -14,7 +14,8 @@ const colorSchemeScript = `document.documentElement.dataset.colorScheme =
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="nb">
+    // The theme script sets data-color-scheme before React hydrates.
+    <html lang="nb" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
