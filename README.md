@@ -15,6 +15,7 @@ apps/web                Demo client (React Router, SPA)
 packages/oratio-core    Framework-agnostic Matrix client on matrix-js-sdk
 packages/oratio-react   React hooks and components on ratio-ui/chat
 infra/charts/tuwunel    Helm chart for the Tuwunel homeserver
+infra/charts/oratio-web Helm chart for the web client (image ghcr.io/losol/oratio-web)
 infra/dev/              Local Tuwunel and Keycloak via Docker Compose
 ```
 
