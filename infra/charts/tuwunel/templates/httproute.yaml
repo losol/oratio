@@ -1,0 +1,27 @@
+# Homeserver on matrix.losol.no (covered by the *.losol.no wildcard listener +
+# cert). Client and federation APIs are both served here on port 8008;
+# federation reaches it over 443 via the .well-known/server delegation.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.httpRoute.gateway.name }}
+      namespace: {{ .Values.httpRoute.gateway.namespace }}
+      sectionName: {{ .Values.httpRoute.gateway.sectionName }}
+  hostnames:
+    - {{ .Values.hostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: tuwunel
+          port: 8008
+          group: ""
+          kind: Service
+          weight: 1

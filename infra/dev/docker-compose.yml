@@ -1,6 +1,6 @@
 # Local Tuwunel homeserver and Keycloak for oratio development.
 #
-#   docker compose -f dev/docker-compose.yml up -d
+#   docker compose -f infra/dev/docker-compose.yml up -d
 #
 # Tuwunel:  http://localhost:8008, server_name `localhost` (@ole:localhost).
 #           Config in tuwunel.toml. Password registration takes the token `oratio-dev`.

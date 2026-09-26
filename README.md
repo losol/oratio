@@ -14,8 +14,8 @@ more later. Web first; native apps may follow.
 apps/web                Demo client (React Router, SPA)
 packages/oratio-core    Framework-agnostic Matrix client on matrix-js-sdk
 packages/oratio-react   React hooks and components on ratio-ui/chat
-charts/tuwunel          Helm chart for the Tuwunel homeserver
-dev/                    Local Tuwunel via Docker Compose
+infra/charts/tuwunel    Helm chart for the Tuwunel homeserver
+infra/dev/              Local Tuwunel and Keycloak via Docker Compose
 ```
 
 Folders appear as they are built. See Status.
@@ -34,26 +34,26 @@ pnpm test
 ### Run the demo
 
 ```sh
-docker compose -f dev/docker-compose.yml up -d   # Tuwunel and Keycloak
+docker compose -f infra/dev/docker-compose.yml up -d   # Tuwunel and Keycloak
 pnpm build
-pnpm --filter @eventuras/oratio-web dev          # https://localhost:5173
+pnpm --filter @eventuras/oratio-web dev                # https://localhost:5173
 ```
 
 Signing in through Keycloak needs the app on https. Create a local certificate
 once with [mkcert](https://github.com/FiloSottile/mkcert); the dev server picks
-it up from `dev/certs`, which git ignores:
+it up from `infra/dev/certs`, which git ignores:
 
 ```sh
 mkcert -install
-mkcert -cert-file dev/certs/localhost.pem -key-file dev/certs/localhost-key.pem localhost 127.0.0.1
+mkcert -cert-file infra/dev/certs/localhost.pem -key-file infra/dev/certs/localhost-key.pem localhost 127.0.0.1
 ```
 
 Without it the app runs on http and only password sign-in works.
 
-| Service  | URL                   | Notes                                                   |
-| -------- | --------------------- | ------------------------------------------------------- |
-| Tuwunel  | http://localhost:8008 | `server_name` `localhost`, config in `dev/tuwunel.toml` |
-| Keycloak | http://localhost:8080 | realm `oratio`, ratio login theme, admin/admin          |
+| Service  | URL                   | Notes                                                         |
+| -------- | --------------------- | ------------------------------------------------------------- |
+| Tuwunel  | http://localhost:8008 | `server_name` `localhost`, config in `infra/dev/tuwunel.toml` |
+| Keycloak | http://localhost:8080 | realm `oratio`, ratio login theme, admin/admin                |
 
 Keycloak has the users `ole`, `ingrid` and `tor`, all with password `oratio`.
 Signing in through Keycloak creates the Matrix user on first login, or reuses

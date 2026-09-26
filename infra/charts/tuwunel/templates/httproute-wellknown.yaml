@@ -1,0 +1,30 @@
+{{- if .Values.wellKnown.delegation.enabled }}
+# .well-known/matrix delegation at the apex (server_name = {{ .Values.serverName }})
+# so @user:{{ .Values.serverName }} resolves to the homeserver at {{ .Values.hostname }}.
+# Only the /.well-known/matrix/ paths are claimed on the apex host; tuwunel
+# generates the JSON from its [global.well_known] config.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-well-known
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.httpRoute.gateway.name }}
+      namespace: {{ .Values.httpRoute.gateway.namespace }}
+      sectionName: {{ .Values.wellKnown.delegation.sectionName }}
+  hostnames:
+    - {{ .Values.wellKnown.delegation.hostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /.well-known/matrix/
+      backendRefs:
+        - name: tuwunel
+          port: 8008
+          group: ""
+          kind: Service
+          weight: 1
+{{- end }}

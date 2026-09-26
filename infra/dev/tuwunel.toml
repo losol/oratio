@@ -1,4 +1,4 @@
-# Tuwunel config for local development. See dev/docker-compose.yml.
+# Tuwunel config for local development. See infra/dev/docker-compose.yml.
 
 [global]
 server_name = "localhost"

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  tuwunel.toml: |
+    [global]
+    # PERMANENT identity — baked into every user ID (@name:{{ .Values.serverName }}).
+    # Changing it requires wiping the database.
+    server_name = {{ .Values.serverName | quote }}
+    database_path = "/var/lib/tuwunel"
+    port = {{ .Values.port | default 8008 }}
+    address = ["0.0.0.0"]
+
+    # Federation with the public Matrix network.
+    allow_federation = {{ .Values.federation.enabled }}
+    trusted_servers = {{ .Values.federation.trustedServers | toJson }}
+
+    # Registration is token-gated: the token is mounted from the
+    # {{ .Values.registration.secretName }} secret (see create-secrets.sh).
+    allow_registration = {{ .Values.registration.enabled }}
+    registration_token_file = "/run/secrets/tuwunel/registration_token"
+
+    # Delegation: server_name ({{ .Values.serverName }}) points at this host.
+    [global.well_known]
+    client = {{ .Values.wellKnown.client | quote }}
+    server = {{ .Values.wellKnown.server | quote }}

@@ -29,4 +29,4 @@ coverage/
 !.env.example
 
 # local TLS certificates (mkcert)
-dev/certs/
+infra/dev/certs/

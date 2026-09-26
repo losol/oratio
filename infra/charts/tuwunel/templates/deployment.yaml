@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tuwunel
+  labels:
+    app: tuwunel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tuwunel
+  # Single RocksDB on a RWO volume — never run two pods at once.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: tuwunel
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      # The Service is named "tuwunel", so K8s would inject TUWUNEL_* service
+      # env vars (e.g. TUWUNEL_PORT=tcp://…) that tuwunel parses as config and
+      # rejects. Disable service links; the app uses DNS, not these vars.
+      enableServiceLinks: false
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: tuwunel
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: TUWUNEL_CONFIG
+              value: /etc/tuwunel/tuwunel.toml
+            {{- with .Values.logLevel }}
+            - name: TUWUNEL_LOG
+              value: {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8008
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tuwunel/tuwunel.toml
+              subPath: tuwunel.toml
+              readOnly: true
+            - name: registration-token
+              mountPath: /run/secrets/tuwunel
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/tuwunel
+            - name: tmp
+              mountPath: /tmp
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /_matrix/client/versions
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_matrix/client/versions
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+        - name: registration-token
+          secret:
+            secretName: {{ .Values.registration.secretName | default "tuwunel-secrets" }}
+            items:
+              - key: registration_token
+                path: registration_token
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
