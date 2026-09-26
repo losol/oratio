@@ -1,0 +1,37 @@
+# oratio web. Static files from /srv, SPA fallback, security headers.
+{
+	admin off
+	auto_https off
+	# Read-only root filesystem: keep Caddy's own state in /tmp.
+	storage file_system /tmp/caddy
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	# Liveness/readiness without touching the app.
+	respond /healthz 200
+
+	header {
+		# Tokens live in the browser, so script injection is the main risk:
+		# only our own scripts, plus the inline ones React Router writes, by hash.
+		# Styles keep 'unsafe-inline': components set inline styles, and style
+		# injection cannot run code. connect-src: the homeserver's APIs.
+		Content-Security-Policy "default-src 'self'; script-src 'self' {$CSP_SCRIPT_HASHES}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' {$HOMESERVER_URL}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		Referrer-Policy no-referrer
+		X-Content-Type-Options nosniff
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Hashed assets never change; HTML and config.json must never be stale.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@fresh path / /index.html /config.json /__spa-fallback.html
+	header @fresh Cache-Control "no-cache"
+
+	# Client-side routes (/login, /auth/callback, …) get the SPA shell.
+	try_files {path} /__spa-fallback.html /index.html
+	file_server
+}
