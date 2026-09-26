@@ -16,5 +16,8 @@ const https =
 // server over plain http, and fails if that server speaks https.
 export default defineConfig(({ command, isPreview }) => ({
   plugins: [reactRouter()],
+  // The build prerenders through a preview server and requests 127.0.0.1. In
+  // containers, localhost can resolve to ::1 first, so bind the address it asks.
+  preview: { host: '127.0.0.1' },
   ...(command === 'serve' && !isPreview && { server: { https } }),
 }));
