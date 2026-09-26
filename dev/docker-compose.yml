@@ -1,0 +1,26 @@
+# Local Tuwunel homeserver for oratio development.
+#
+#   docker compose -f dev/docker-compose.yml up -d
+#
+# Homeserver: http://localhost:8008, server_name `localhost`
+# (user IDs look like @leo:localhost). Registration takes the token `oratio-dev`.
+# Federation is off. Data lives in the `tuwunel-data` volume; `down -v` wipes it.
+services:
+  tuwunel:
+    image: ghcr.io/matrix-construct/tuwunel:v1.9.3
+    ports:
+      - "8008:8008"
+    environment:
+      TUWUNEL_SERVER_NAME: localhost
+      TUWUNEL_DATABASE_PATH: /var/lib/tuwunel
+      TUWUNEL_ADDRESS: '["0.0.0.0"]'
+      TUWUNEL_PORT: 8008
+      TUWUNEL_ALLOW_FEDERATION: "false"
+      TUWUNEL_ALLOW_REGISTRATION: "true"
+      TUWUNEL_REGISTRATION_TOKEN: oratio-dev
+      TUWUNEL_LOG: info
+    volumes:
+      - tuwunel-data:/var/lib/tuwunel
+
+volumes:
+  tuwunel-data:

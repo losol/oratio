@@ -31,6 +31,24 @@ pnpm build
 pnpm test
 ```
 
+### Run the demo
+
+```sh
+docker compose -f dev/docker-compose.yml up -d   # Tuwunel on http://localhost:8008
+pnpm --filter @eventuras/oratio-web dev          # the web client
+```
+
+The local homeserver has `server_name` `localhost` and registration token
+`oratio-dev`. Register a user with any Matrix client, or:
+
+```sh
+curl -X POST http://localhost:8008/_matrix/client/v3/register \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"ole","password":"oratio","auth":{"type":"m.login.registration_token","token":"oratio-dev"}}'
+```
+
+The first user registered becomes server admin.
+
 Releases use [changesets](https://github.com/changesets/changesets):
 `pnpm changeset` records a change.
 
