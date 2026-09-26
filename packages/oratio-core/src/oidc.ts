@@ -19,6 +19,12 @@ export interface OidcLoginOptions {
   redirectUri: string;
   /** Shown to the user by the homeserver. @default 'oratio' */
   clientName?: string;
+  /**
+   * A client ID this app registered earlier with the same homeserver and
+   * redirect URI. Reusing it means the user approves the app once, not at
+   * every sign-in. Registers a new client when omitted or no longer known.
+   */
+  clientId?: string;
 }
 
 /** What {@link completeOidcLogin} needs. Keep it until the user comes back, then drop it. */
@@ -40,19 +46,31 @@ export async function beginOidcLogin(
   options: OidcLoginOptions,
 ): Promise<{ url: string; pending: PendingOidcLogin }> {
   const metadata = await authMetadata(options.homeserverUrl);
+  const start = async (clientId: string) => {
+    const oauth = new OAuth2(metadata, { clientId, redirectUri: options.redirectUri });
+    const state = crypto.randomUUID();
+    const url = await oauth.generateAuthorizationCodeGrantUrl(state);
+    return { url, pending: { ...oauth.context, homeserverUrl: options.homeserverUrl, state } };
+  };
+
+  if (options.clientId) {
+    const attempt = await start(options.clientId);
+    // A client the homeserver forgot, e.g. after a database reset, gets 404
+    // here before any redirect. A known one redirects on to the identity
+    // provider, which a manual-redirect fetch sees as an opaque response.
+    const probe = await fetch(attempt.url, { redirect: 'manual' }).catch(() => null);
+    if (probe?.status !== 404) {
+      return attempt;
+    }
+  }
+
   const clientId = await OAuth2.registerClient(metadata, {
     client_name: options.clientName ?? 'oratio',
     client_uri: options.clientUri,
     redirect_uris: [options.redirectUri],
     application_type: 'web',
   });
-  const oauth = new OAuth2(metadata, { clientId, redirectUri: options.redirectUri });
-  const state = crypto.randomUUID();
-  const url = await oauth.generateAuthorizationCodeGrantUrl(state);
-  return {
-    url,
-    pending: { ...oauth.context, homeserverUrl: options.homeserverUrl, state },
-  };
+  return start(clientId);
 }
 
 /**

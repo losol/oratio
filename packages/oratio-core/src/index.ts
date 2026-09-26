@@ -4,7 +4,7 @@
 
 // The client and its events, so bindings subscribe through the same
 // matrix-js-sdk instance as core.
-export { ClientEvent, EventType, type MatrixClient, RoomEvent } from 'matrix-js-sdk';
+export { ClientEvent, EventType, type MatrixClient, Preset, RoomEvent } from 'matrix-js-sdk';
 export { type MatrixUserId, parseUserId } from './ids';
 export {
   beginOidcLogin,

@@ -18,12 +18,18 @@ export interface OratioRoom {
   /** This user was mentioned or otherwise highlighted in an unread message. */
   mention?: boolean;
   members?: number;
+  /** End-to-end encrypted. oratio cannot read or send in these rooms yet. */
+  encrypted?: boolean;
 }
 
 /** The parts of a matrix-js-sdk `Room` the mapping reads. */
 export type RoomLike = Pick<
   Room,
-  'roomId' | 'name' | 'getJoinedMemberCount' | 'getUnreadNotificationCount'
+  | 'roomId'
+  | 'name'
+  | 'getJoinedMemberCount'
+  | 'getUnreadNotificationCount'
+  | 'hasEncryptionStateEvent'
 >;
 
 /**
@@ -40,6 +46,7 @@ export function toOratioRoom(room: RoomLike, directRoomIds: ReadonlySet<string>)
     ...(unread > 0 && { unread }),
     ...(highlights > 0 && { mention: true }),
     members: room.getJoinedMemberCount(),
+    ...(room.hasEncryptionStateEvent() && { encrypted: true }),
   };
 }
 
