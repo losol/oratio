@@ -11,11 +11,11 @@ more later. Web first; native apps may follow.
 ## Layout
 
 ```
-apps/web         Demo client (React Router, SPA)
-packages/core    Framework-agnostic Matrix client on matrix-js-sdk
-packages/react   React hooks and components on ratio-ui/chat
-charts/tuwunel   Helm chart for the Tuwunel homeserver
-dev/             Local Tuwunel via Docker Compose
+apps/web                Demo client (React Router, SPA)
+packages/oratio-core    Framework-agnostic Matrix client on matrix-js-sdk
+packages/oratio-react   React hooks and components on ratio-ui/chat
+charts/tuwunel          Helm chart for the Tuwunel homeserver
+dev/                    Local Tuwunel via Docker Compose
 ```
 
 Folders appear as they are built. See Status.

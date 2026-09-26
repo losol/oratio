@@ -1,12 +1,12 @@
 {
-  "name": "@eventuras/oratio-core",
+  "name": "@eventuras/oratio-react",
   "version": "0.0.0",
-  "description": "Framework-agnostic Matrix client core for oratio, on matrix-js-sdk",
+  "description": "React hooks and components for the oratio Matrix client, on ratio-ui/chat",
   "license": "MPL-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/losol/oratio.git",
-    "directory": "packages/oratio-core"
+    "directory": "packages/oratio-react"
   },
   "type": "module",
   "sideEffects": false,
@@ -24,16 +24,26 @@
   "scripts": {
     "build": "vite build && tsc --emitDeclarationOnly",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@eventuras/oratio-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@eventuras/ratio-ui": "^2.25.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@eventuras/ratio-ui": "^2.25.0",
     "@eventuras/typescript-config": "^1.1.0",
     "@eventuras/vite-config": "^0.4.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "typescript": "^6.0.2",
-    "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vite": "^8.2.1"
   },
   "publishConfig": {
     "access": "public"
