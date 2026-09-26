@@ -83,10 +83,11 @@ identityProviders: []
 #    discoveryUrl: ""
 #    # Defaults to https://<hostname>/_matrix/client/unstable/login/sso/callback/<clientId>
 #    callbackUrl: ""
-#    # Our own IdP: a matching username signs in as the existing Matrix user.
+#    # Our own IdP: trust its claims to match existing Matrix users.
 #    trusted: true
-#    # Claims tried in order for the localpart of new users.
-#    useridClaims: [preferred_username]
+#    # Claims for the Matrix localpart. Permanent: see the README. sub is
+#    # Keycloak's stable user ID.
+#    useridClaims: [sub]
 #    # Let this provider create new accounts.
 #    registration: true
 

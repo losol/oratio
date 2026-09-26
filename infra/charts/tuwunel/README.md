@@ -32,9 +32,18 @@ identityProviders:
     clientId: tuwunel             # never change once in use
     issuerUrl: https://id.example.org/realms/example
     clientSecretKey: keycloak_client_secret
-    trusted: true                 # matching usernames sign in as existing users
-    useridClaims: [preferred_username]
+    trusted: true
+    useridClaims: [sub]           # permanent, see below
 ```
+
+**Choose `useridClaims` before the first sign-in.** Tuwunel derives the Matrix
+localpart from these claims at every login, so changing them later gives
+existing users a second account. `sub` is Keycloak's user ID: it never
+changes and is always a valid localpart, giving IDs like
+`@e7ef1fe6-ec9f-413c-b993-17a64712dfdc:example.org` with the user's name as
+display name. `preferred_username` gives readable IDs, but tessera-otp creates
+users with their email as username, which is not a valid localpart, and
+Tuwunel then falls back to a random one.
 
 Register a confidential client in Keycloak with the redirect URI
 `https://matrix.example.org/_matrix/client/unstable/login/sso/callback/tuwunel`.
