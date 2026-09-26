@@ -1,27 +1,63 @@
+{{- $secrets := include "tuwunel.secretsDir" . -}}
+{{- $hostname := include "tuwunel.hostname" . -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-config
+  name: {{ include "tuwunel.fullname" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
 data:
   tuwunel.toml: |
     [global]
-    # PERMANENT identity — baked into every user ID (@name:{{ .Values.serverName }}).
+    # PERMANENT identity, baked into every user ID (@name:{{ .Values.serverName }}).
     # Changing it requires wiping the database.
-    server_name = {{ .Values.serverName | quote }}
+    server_name = {{ required "serverName is required, e.g. example.org" .Values.serverName | quote }}
     database_path = "/var/lib/tuwunel"
-    port = {{ .Values.port | default 8008 }}
     address = ["0.0.0.0"]
+    port = {{ .Values.port }}
 
-    # Federation with the public Matrix network.
     allow_federation = {{ .Values.federation.enabled }}
     trusted_servers = {{ .Values.federation.trustedServers | toJson }}
 
-    # Registration is token-gated: the token is mounted from the
-    # {{ .Values.registration.secretName }} secret (see create-secrets.sh).
     allow_registration = {{ .Values.registration.enabled }}
-    registration_token_file = "/run/secrets/tuwunel/registration_token"
+    {{- if .Values.registration.enabled }}
+    registration_token_file = "{{ $secrets }}/registration_token"
+    {{- end }}
 
-    # Delegation: server_name ({{ .Values.serverName }}) points at this host.
+    oidc_registration_allowed_redirect_hosts = {{ .Values.oidc.allowedRedirectHosts | toJson }}
+    oidc_require_client_approval = {{ .Values.oidc.requireClientApproval }}
+
+    access_token_ttl = {{ .Values.tokens.accessTokenTtl | int64 }}
+    refresh_token_ttl = {{ .Values.tokens.refreshTokenTtl | int64 }}
+    {{- with .Values.extraConfig }}
+
+    {{- . | trim | nindent 4 }}
+    {{- end }}
+
     [global.well_known]
-    client = {{ .Values.wellKnown.client | quote }}
-    server = {{ .Values.wellKnown.server | quote }}
+    client = {{ include "tuwunel.wellKnownClient" . | quote }}
+    server = {{ default (printf "%s:443" $hostname) .Values.wellKnown.server | quote }}
+    {{- range .Values.identityProviders }}
+
+    [[global.identity_provider]]
+    brand = {{ required "identityProviders[].brand is required" .brand | quote }}
+    {{- with .name }}
+    name = {{ . | quote }}
+    {{- end }}
+    client_id = {{ required "identityProviders[].clientId is required" .clientId | quote }}
+    client_secret_file = "{{ $secrets }}/{{ required "identityProviders[].clientSecretKey is required" .clientSecretKey }}"
+    {{- with .issuerUrl }}
+    issuer_url = {{ . | quote }}
+    {{- end }}
+    {{- with .discoveryUrl }}
+    discovery_url = {{ . | quote }}
+    {{- end }}
+    callback_url = {{ default (printf "https://%s/_matrix/client/unstable/login/sso/callback/%s" $hostname .clientId) .callbackUrl | quote }}
+    trusted = {{ .trusted | default false }}
+    {{- with .useridClaims }}
+    userid_claims = {{ . | toJson }}
+    {{- end }}
+    {{- if hasKey . "registration" }}
+    registration = {{ .registration }}
+    {{- end }}
+    {{- end }}
