@@ -8,7 +8,7 @@ Content-Security-Policy, behind a Gateway API route.
 hostname: chat.example.org
 homeserverUrl: https://matrix.example.org
 image:
-  tag: main-1a2b3c4            # CI tags every build on main
+  tag: main-1a2b3c4            # required: CI publishes main-<sha> on main
 httpRoute:
   gateway:
     sectionName: https-example

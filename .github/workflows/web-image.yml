@@ -55,10 +55,11 @@ jobs:
           push: false
           cache-from: type=gha
 
-  # main and manual runs: build and publish main-<sha>.
+  # main, and manual runs from main: build and publish main-<sha>. Other refs
+  # never publish, so a main- tag always comes from main.
   publish:
     name: Build & push
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
