@@ -1,0 +1,38 @@
+# oratio web client.
+#
+# Required: hostname and homeserverUrl.
+
+image:
+  registry: ghcr.io
+  repository: losol/oratio-web
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicas: 1
+
+# Where the app is served, e.g. chat.example.org.
+hostname: ""
+
+# The Matrix homeserver the app talks to, e.g. https://matrix.example.org.
+# Goes into /config.json and the Content-Security-Policy.
+homeserverUrl: ""
+
+httpRoute:
+  enabled: true
+  gateway:
+    name: traefik-gateway
+    namespace: traefik
+    sectionName: ""
+
+podAnnotations: {}
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
