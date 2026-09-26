@@ -24,7 +24,9 @@
   "scripts": {
     "build": "vite build && tsc --emitDeclarationOnly",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@eventuras/oratio-core": "workspace:*"
@@ -38,12 +40,15 @@
     "@eventuras/ratio-ui": "^2.25.0",
     "@eventuras/typescript-config": "^1.1.0",
     "@eventuras/vite-config": "^0.4.0",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "jsdom": "^27.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "typescript": "^6.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"
