@@ -18,6 +18,8 @@ services:
       TUWUNEL_ALLOW_FEDERATION: "false"
       TUWUNEL_ALLOW_REGISTRATION: "true"
       TUWUNEL_REGISTRATION_TOKEN: oratio-dev
+      # Tuwunel appends a heart to new users' display names by default.
+      TUWUNEL_NEW_USER_DISPLAYNAME_SUFFIX: ''
       TUWUNEL_LOG: info
     volumes:
       - tuwunel-data:/var/lib/tuwunel

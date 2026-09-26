@@ -2,45 +2,113 @@
 // SPDX-FileCopyrightText: 2026 Losol AS
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState } from 'react';
-import { ChatChannelList, type ChatChannelListSection, ChatLog } from '@eventuras/ratio-ui/chat';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { logout, type MatrixClient, parseUserId, startClient } from '@eventuras/oratio-core';
+import { useRooms, useTimeline } from '@eventuras/oratio-react';
+import { ChatChannelList, ChatLog } from '@eventuras/ratio-ui/chat';
+import { Button } from '@eventuras/ratio-ui/core/Button';
+import { Input } from '@eventuras/ratio-ui/forms';
+import { clearSession, loadSession } from '../session';
 
-// Sample data until the app talks to a homeserver.
-const sections: ChatChannelListSection[] = [
-  {
-    label: 'Rom',
-    rooms: [
-      { id: 'general', kind: 'channel', name: 'general', members: 12 },
-      { id: 'kurs', kind: 'channel', name: 'kurs', unread: 3 },
-    ],
-  },
-  {
-    label: 'Direkte',
-    rooms: [{ id: 'ingrid', kind: 'dm', name: 'Ingrid', presence: 'online' }],
-  },
-];
+/** Starts a client for the stored session, or sends the user to /login. */
+function useClient(): MatrixClient | null {
+  const navigate = useNavigate();
+  const [client, setClient] = useState<MatrixClient | null>(null);
+
+  useEffect(() => {
+    const session = loadSession();
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    let started: MatrixClient | null = null;
+    let cancelled = false;
+    startClient(session).then((c) => {
+      started = c;
+      if (cancelled) c.stopClient();
+      else setClient(c);
+    });
+    return () => {
+      cancelled = true;
+      started?.stopClient();
+    };
+  }, [navigate]);
+
+  return client;
+}
 
 export default function Home() {
-  const [activeId, setActiveId] = useState('general');
+  const navigate = useNavigate();
+  const client = useClient();
+  const rooms = useRooms(client);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const roomId = activeId ?? rooms[0]?.id ?? null;
+  const messages = useTimeline(client, roomId, { locale: 'nb-NO' });
+  const me = parseUserId(client?.getUserId() ?? '')?.localpart;
+
+  // ChatLog leaves scrolling to the caller: follow new messages.
+  const logRef = useRef<HTMLDivElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new messages are the trigger, not an input
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
+  }, [messages]);
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const text = String(new FormData(form).get('text')).trim();
+    if (!client || !roomId || !text) return;
+    form.reset();
+    await client.sendTextMessage(roomId, text);
+  }
+
+  async function createRoom() {
+    const name = window.prompt('Navn på rommet');
+    if (!client || !name) return;
+    const { room_id } = await client.createRoom({ name, preset: 'public_chat' as never });
+    setActiveId(room_id);
+  }
+
+  async function signOut() {
+    if (client) await logout(client).catch(() => undefined);
+    clearSession();
+    navigate('/login');
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '232px minmax(0, 1fr)', height: '100dvh' }}>
-      <ChatChannelList
-        sections={sections}
-        activeId={activeId}
-        onSelect={setActiveId}
-        aria-label="Rom"
-      />
-      <ChatLog
-        aria-label={activeId}
-        me="ole"
-        messages={[
-          { id: '1', type: 'divider', text: 'I dag' },
-          { id: '2', time: '09:41', nick: 'ingrid', role: 'op', text: 'Velkommen til oratio!' },
-          { id: '3', time: '09:42', nick: 'ole', text: 'Hei @ingrid, dette er ratio-ui/chat.' },
-          { id: '4', type: 'event', time: '09:43', text: 'Tor har blitt med i rommet' },
-        ]}
-      />
+      <aside style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+        <ChatChannelList
+          sections={[{ label: 'Rom', rooms }]}
+          activeId={roomId}
+          onSelect={setActiveId}
+          aria-label="Rom"
+        />
+        <Button variant="outline" size="sm" onPress={createRoom} isDisabled={!client}>
+          Nytt rom
+        </Button>
+        <Button variant="text" size="sm" onPress={signOut}>
+          Logg ut {me}
+        </Button>
+      </aside>
+      <main style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div ref={logRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <ChatLog aria-label="Meldinger" me={me} messages={messages} />
+        </div>
+        <form onSubmit={send} style={{ display: 'flex', gap: 8, padding: '12px 22px 14px' }}>
+          <Input
+            name="text"
+            aria-label="Melding"
+            placeholder={client ? 'Skriv en melding' : 'Kobler til…'}
+            autoComplete="off"
+            style={{ flex: 1 }}
+          />
+          <Button type="submit" isDisabled={!roomId}>
+            Send
+          </Button>
+        </form>
+      </main>
     </div>
   );
 }
