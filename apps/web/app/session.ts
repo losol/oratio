@@ -10,7 +10,9 @@ const sessionKey = 'oratio.session';
 // A sign-in in progress lives only as long as the tab.
 const pendingKey = 'oratio.pending-login';
 
-export const defaultHomeserverUrl = import.meta.env.VITE_HOMESERVER_URL ?? 'http://localhost:8008';
+// The OIDC client the homeserver registered for this app, reused so users
+// approve oratio once. Keyed by homeserver, since each one registers its own.
+const clientKey = (homeserverUrl: string) => `oratio.oidc-client:${homeserverUrl}`;
 
 function read<T>(storage: Storage, key: string): T | null {
   try {
@@ -30,3 +32,8 @@ export const loadPendingLogin = () => read<PendingOidcLogin>(sessionStorage, pen
 export const savePendingLogin = (pending: PendingOidcLogin) =>
   sessionStorage.setItem(pendingKey, JSON.stringify(pending));
 export const clearPendingLogin = () => sessionStorage.removeItem(pendingKey);
+
+export const loadClientId = (homeserverUrl: string) =>
+  localStorage.getItem(clientKey(homeserverUrl));
+export const saveClientId = (homeserverUrl: string, clientId: string) =>
+  localStorage.setItem(clientKey(homeserverUrl), clientId);
