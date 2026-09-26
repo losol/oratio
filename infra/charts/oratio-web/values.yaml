@@ -1,6 +1,6 @@
 # oratio web client.
 #
-# Required: hostname and homeserverUrl.
+# Required: homeserverUrl, and hostname while httpRoute.enabled (the default).
 
 image:
   registry: ghcr.io
@@ -14,7 +14,9 @@ fullnameOverride: ""
 
 replicas: 1
 
-# Where the app is served, e.g. chat.example.org.
+# Where the app is served, e.g. chat.example.org. Used by the HTTPRoute only;
+# leave it empty when httpRoute.enabled is false and the Service is exposed
+# some other way.
 hostname: ""
 
 # The Matrix homeserver the app talks to, e.g. https://matrix.example.org.
