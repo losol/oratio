@@ -11,6 +11,10 @@ allowBuilds:
 # Supply-chain protection: do not resolve packages published less than
 # 10 days ago. Same window as ratio-ui and eventuras.
 minimumReleaseAge: 14400
+# Our own packages are trusted and move fast: take them as soon as they are
+# published.
+minimumReleaseAgeExclude:
+  - '@eventuras/*'
 minimumReleaseAgeStrict: false
 
 peerDependencyRules:

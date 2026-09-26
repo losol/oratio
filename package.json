@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "license": "MPL-2.0",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/losol/oratio.git"
@@ -10,8 +11,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
+    "lint": "biome check --error-on-warnings .",
+    "lint:fix": "biome check --write --error-on-warnings .",
+    "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "changeset": "changeset",
@@ -20,8 +22,11 @@
     "clean": "pnpm -r exec rm -rf dist build .turbo node_modules && rm -rf node_modules .turbo"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
     "@changesets/cli": "^3.0.2",
-    "turbo": "^2.10.12"
+    "@eventuras/typescript-config": "^1.0.0",
+    "turbo": "^2.10.12",
+    "typescript": "^6.0.2"
   },
   "packageManager": "pnpm@11.9.0",
   "engines": {

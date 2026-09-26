@@ -26,6 +26,7 @@ Requires Node 24 (`.nvmrc`) and pnpm 11.
 
 ```sh
 pnpm install
+pnpm lint       # Biome: format, imports and lint rules in one pass
 pnpm build
 pnpm test
 ```
