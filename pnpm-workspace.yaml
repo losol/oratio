@@ -6,6 +6,7 @@ packages:
 
 # Allow-list of packages whose install scripts may run.
 allowBuilds:
+  '@swc/core': true
   esbuild: true
 
 # Supply-chain protection: do not resolve packages published less than

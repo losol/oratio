@@ -1,0 +1,41 @@
+{
+  "name": "@eventuras/oratio-core",
+  "version": "0.0.0",
+  "description": "Framework-agnostic Matrix client core for oratio, on matrix-js-sdk",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/losol/oratio.git",
+    "directory": "packages/core"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eventuras/typescript-config": "^1.1.0",
+    "@eventuras/vite-config": "^0.4.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
