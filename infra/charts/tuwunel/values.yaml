@@ -57,11 +57,13 @@ wellKnown:
 # as oratio and Element X sign in through. It hands the login on to the
 # identity providers below.
 oidc:
-  # Hosts that dynamically registered clients may redirect to. Empty allows any.
+  # Hosts or URI schemes that dynamically registered clients may redirect to,
+  # e.g. [chat.example.org, app.element.io, io.element.elementx]. Clients on
+  # the list are trusted: they never see the approval page, and no other
+  # client can register. Empty lets any client register.
   allowedRedirectHosts: []
-  # Show Tuwunel's "Authorize application" page before issuing a code. Turn it
-  # off only together with allowedRedirectHosts, so no foreign client can sign
-  # users in unasked.
+  # With an empty allowedRedirectHosts, show Tuwunel's "Authorize application"
+  # page at every sign-in. Only turn it off together with an allowlist.
   requireClientApproval: true
 
 tokens:
