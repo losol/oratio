@@ -44,7 +44,8 @@ client_secret = "tuwunel-dev-secret"
 issuer_url = "http://localhost:8080/realms/oratio"
 discovery_url = "http://keycloak:8080/realms/oratio/.well-known/openid-configuration"
 callback_url = "http://localhost:8008/_matrix/client/unstable/login/sso/callback/tuwunel"
-# Our own IdP: a Keycloak username that matches an existing Matrix localpart
-# signs in as that user, so @ole:localhost from password sign-up is the same person.
 trusted = true
-userid_claims = ["preferred_username"]
+# The Matrix localpart is Keycloak's user ID (sub): stable when the email or
+# username changes, and valid where tessera-otp's email usernames are not.
+# Permanent: switching claims later gives existing users a second account.
+userid_claims = ["sub"]

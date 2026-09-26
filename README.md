@@ -56,8 +56,9 @@ Without it the app runs on http and only password sign-in works.
 | Keycloak | http://localhost:8080 | realm `oratio`, ratio login theme, admin/admin                |
 
 Keycloak has the users `ole`, `ingrid` and `tor`, all with password `oratio`.
-Signing in through Keycloak creates the Matrix user on first login, or reuses
-an existing one with the same username.
+Signing in through Keycloak creates the Matrix user on first login. Its ID is
+the Keycloak user ID, e.g. `@e7ef1fe6-…:localhost`, with the person's name as
+display name. Password accounts such as `@ole:localhost` are separate users.
 
 Password accounts work too. Register one with the token `oratio-dev`:
 
