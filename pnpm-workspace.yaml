@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+  - '!**/dist'
+  - '!**/node_modules'
+
+# Allow-list of packages whose install scripts may run.
+allowBuilds:
+  esbuild: true
+
+# Supply-chain protection: do not resolve packages published less than
+# 10 days ago. Same window as ratio-ui and eventuras.
+minimumReleaseAge: 14400
+minimumReleaseAgeStrict: false
+
+peerDependencyRules:
+  ignoreMissing:
+    - '@types/react'
+    - '@types/react-dom'
