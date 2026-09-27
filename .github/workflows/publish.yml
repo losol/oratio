@@ -32,12 +32,13 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          NAME="${TAG%@*}"
-          case "$NAME" in
-            @eventuras/oratio-core|@eventuras/oratio-react) ;;
-            *) echo "::error::Not a published package: ${TAG}"; exit 1 ;;
-          esac
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          # The whole tag, as changesets writes it: package@semver.
+          PATTERN='^(@eventuras/oratio-(core|react))@[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          if [[ ! "$TAG" =~ $PATTERN ]]; then
+            echo "::error::Not a release tag of a published package: ${TAG}"
+            exit 1
+          fi
+          echo "name=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
 
       # A version published by hand, like the first release of each package,
       # is already there: npm refuses to publish it again, so skip it.
