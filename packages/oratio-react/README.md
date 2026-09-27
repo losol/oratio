@@ -12,9 +12,16 @@ compound statics (`Chat.Header`-style) on client components.
 - `react` and `react-dom` 19
 - `@eventuras/ratio-ui` 2.25 or later, for the chat components and tokens
 
+## Install
+
+```sh
+pnpm add @eventuras/oratio-react @eventuras/oratio-core @eventuras/ratio-ui
+```
+
 ## Status
 
-Skeleton. No hooks or components yet.
+Early, 0.x: the API may change between minor versions. Has the `useRooms` and
+`useTimeline` hooks; the provider and composed views are still to come.
 
 ## License
 

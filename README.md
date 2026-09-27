@@ -71,8 +71,14 @@ curl -X POST http://localhost:8008/_matrix/client/v3/register \
 
 The first user registered becomes server admin.
 
-Releases use [changesets](https://github.com/changesets/changesets):
-`pnpm changeset` records a change.
+### Releases
+
+`@eventuras/oratio-core` and `@eventuras/oratio-react` are published to npm with
+[changesets](https://github.com/changesets/changesets). Record a change with
+`pnpm changeset` and commit the file with the change. On main, the Release
+workflow collects pending changesets into a "Version Packages" pull request.
+Merging it tags the new versions and runs the Publish workflow, which publishes
+to npm with provenance through trusted publishing.
 
 ## Status
 

@@ -1,0 +1,107 @@
+# Releases the npm packages with changesets, as in ratio-ui.
+#
+# Pending changesets on main open or update the "Version Packages" pull
+# request. Merging it leaves no changesets, so the next run tags each new
+# version, cuts a GitHub release and dispatches publish.yml for it.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Version or tag
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Check for pending changesets
+        id: changesets
+        run: |
+          COUNT=$(find .changeset -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Found $COUNT pending changeset(s)"
+
+      - name: Create or update version PR
+        if: steps.changesets.outputs.count != '0'
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          version-script: pnpm changeset:version
+          commit-message: 'chore: version packages'
+          pr-title: 'chore: version packages'
+
+      # Shell rather than changesets/action for tagging: @changesets/cli 3 no
+      # longer prints the "New tag:" lines the action looks for, so the action
+      # would tag inside the runner and never push. The new tags decide what
+      # was released.
+      - name: Tag released packages
+        if: steps.changesets.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --tags --force --quiet
+
+          git tag --list | sort > /tmp/tags-before
+          pnpm changeset:tag
+          git tag --list | sort > /tmp/tags-after
+          comm -13 /tmp/tags-before /tmp/tags-after > /tmp/tags-new
+
+          if [ ! -s /tmp/tags-new ]; then
+            echo "No new tags: every package version is already released."
+            exit 0
+          fi
+
+          UNDISPATCHED=""
+          while read -r TAG; do
+            [ -n "$TAG" ] || continue
+            NAME="${TAG%@*}"        # @eventuras/oratio-core
+            VERSION="${TAG##*@}"    # 0.1.0
+            SLUG="${NAME##*/}"      # oratio-core
+
+            echo "::group::${TAG}"
+            git push origin "refs/tags/${TAG}"
+            gh release create "$TAG" --title "${SLUG} v${VERSION}" --generate-notes \
+              || echo "::warning::Could not create the GitHub release for ${TAG}"
+
+            # Tags pushed with GITHUB_TOKEN trigger no workflows, so dispatch
+            # the publish explicitly. A failed dispatch leaves the version
+            # tagged but not on npm: collect those and fail the run.
+            if ! gh workflow run publish.yml -f tag="$TAG"; then
+              echo "::error::Could not dispatch publish.yml for ${TAG}: tagged, not published."
+              UNDISPATCHED="${UNDISPATCHED} ${TAG}"
+            fi
+            echo "::endgroup::"
+          done < /tmp/tags-new
+
+          if [ -n "$UNDISPATCHED" ]; then
+            echo "::error::Publish was not dispatched for:${UNDISPATCHED}"
+            echo "Re-run manually: gh workflow run publish.yml -f tag=<tag>"
+            exit 1
+          fi
