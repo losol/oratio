@@ -1,0 +1,65 @@
+# Publishes one package version to npm from its release tag, with
+# provenance. release.yml dispatches this for every tag it creates; run it
+# by hand to retry a publish.
+#
+# Authenticates with npm trusted publishing (OIDC), so no npm token is
+# stored. Each package lists this workflow and the npm environment as its
+# trusted publisher on npmjs.com.
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. @eventuras/oratio-core@0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.tag }}
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Resolve package
+        id: package
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          NAME="${TAG%@*}"
+          case "$NAME" in
+            @eventuras/oratio-core|@eventuras/oratio-react) ;;
+            *) echo "::error::Not a published package: ${TAG}"; exit 1 ;;
+          esac
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --filter "${{ steps.package.outputs.name }}..." --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        run: pnpm --filter "${{ steps.package.outputs.name }}..." build
+
+      - name: Test
+        run: pnpm --filter "${{ steps.package.outputs.name }}" test
+
+      # pnpm replaces workspace: ranges with the released versions.
+      - name: Publish to npm
+        run: pnpm --filter "${{ steps.package.outputs.name }}" publish --access public --provenance --no-git-checks

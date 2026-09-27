@@ -29,7 +29,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@eventuras/oratio-core": "workspace:*"
+    "@eventuras/oratio-core": "workspace:^"
   },
   "peerDependencies": {
     "@eventuras/ratio-ui": "^2.25.0",

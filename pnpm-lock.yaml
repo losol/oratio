@@ -95,7 +95,7 @@ importers:
   packages/oratio-react:
     dependencies:
       '@eventuras/oratio-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../oratio-core
     devDependencies:
       '@eventuras/ratio-ui':

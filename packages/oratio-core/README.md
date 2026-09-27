@@ -7,9 +7,17 @@ timelines and members to the shapes that `@eventuras/ratio-ui/chat` renders.
 No DOM dependencies: storage and other platform services are injected, so the
 package can serve a web app, a Capacitor shell or React Native.
 
+## Install
+
+```sh
+pnpm add @eventuras/oratio-core
+```
+
 ## Status
 
-Skeleton. The Matrix client itself is not here yet.
+Early, 0.x: the API may change between minor versions. Signs in with a
+password or through the homeserver's OIDC (MSC3861), syncs with token refresh,
+and maps rooms and timelines. No end-to-end encryption.
 
 ## Development
 
