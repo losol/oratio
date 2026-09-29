@@ -6,22 +6,24 @@
 
 import { useEffect, useState } from 'react';
 import {
-  type MatrixClient,
   type OratioMessage,
   RoomEvent,
   type TimelineOptions,
   toOratioMessages,
 } from '@eventuras/oratio-core';
+import { type ClientOption, useResolvedClient } from './OratioProvider';
 
 // New events, our own messages moving from sending to sent, and redactions.
 const roomEvents = [RoomEvent.Timeline, RoomEvent.LocalEchoUpdated, RoomEvent.Redaction] as const;
 
+export interface UseTimelineOptions extends TimelineOptions, ClientOption {}
+
 /** The loaded messages of a room's live timeline, oldest first. Empty without a room. */
 export function useTimeline(
-  client: MatrixClient | null,
   roomId: string | null,
-  options: TimelineOptions = {},
+  options: UseTimelineOptions = {},
 ): OratioMessage[] {
+  const client = useResolvedClient(options.client);
   const [messages, setMessages] = useState<OratioMessage[]>([]);
   const { locale } = options;
 

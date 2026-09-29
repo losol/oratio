@@ -15,6 +15,7 @@ import {
   RoomEvent,
   toOratioRoom,
 } from '@eventuras/oratio-core';
+import { type ClientOption, useResolvedClient } from './OratioProvider';
 
 function readRooms(client: MatrixClient): OratioRoom[] {
   const direct = directRoomIds(client.getAccountData(EventType.Direct)?.getContent());
@@ -31,8 +32,12 @@ const clientEvents = [
 ] as const;
 const roomEvents = [RoomEvent.Name, RoomEvent.MyMembership, RoomEvent.Receipt] as const;
 
-/** The joined rooms, kept current as the client syncs. Empty while `client` is null. */
-export function useRooms(client: MatrixClient | null): OratioRoom[] {
+/**
+ * The joined rooms, kept current as the client syncs. Empty while there is
+ * no client.
+ */
+export function useRooms(options: ClientOption = {}): OratioRoom[] {
+  const client = useResolvedClient(options.client);
   const [rooms, setRooms] = useState<OratioRoom[]>([]);
 
   useEffect(() => {

@@ -23,13 +23,13 @@ function fakeClient(names: string[]) {
 
 describe('useRooms', () => {
   it('is empty without a client', () => {
-    const { result } = renderHook(() => useRooms(null));
+    const { result } = renderHook(() => useRooms({ client: null }));
     expect(result.current).toEqual([]);
   });
 
   it('lists joined rooms by name and follows sync', () => {
     const { client, rooms, room, emitter } = fakeClient(['kurs', 'general']);
-    const { result } = renderHook(() => useRooms(client));
+    const { result } = renderHook(() => useRooms({ client }));
     expect(result.current.map((room) => room.name)).toEqual(['general', 'kurs']);
 
     rooms.push(room('ny'));
