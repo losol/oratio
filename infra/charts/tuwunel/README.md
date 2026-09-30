@@ -62,6 +62,46 @@ it. Keys it reads:
 | `registration_token`       | `registration.enabled`   |
 | `<clientSecretKey>`        | per identity provider    |
 
+Appservice registrations live in a Secret of their own, see Appservices.
+
+## Appservices
+
+For bridges, bots, or a host app that signs its users in itself, such as
+civitas. Put one registration per key in a Secret, in Synapse's YAML format:
+
+```yaml
+# lk_staging.yaml
+id: lk_staging
+url: null                        # receive-only: the host calls the homeserver
+as_token: <random>               # the host's token
+hs_token: <random>
+sender_localpart: lk_staging_bot
+rate_limited: false
+namespaces:
+  users:
+    - exclusive: true
+      regex: '@lk_staging_.*:example.org'
+  aliases: []
+  rooms: []
+```
+
+```sh
+kubectl create secret generic tuwunel-appservices --from-file=lk_staging.yaml
+```
+
+```yaml
+appservices:
+  existingSecret: tuwunel-appservices
+```
+
+The chart mounts the Secret at `/etc/tuwunel/appservices` and sets
+`appservice_dir`, so the tokens never reach the ConfigMap: Tuwunel has no
+`as_token_file`. Several keys give several appservices, each confined to its
+namespace. Tuwunel reads the directory only at startup: annotate the pod for
+Stakater Reloader (`podAnnotations: {reloader.stakater.com/auto: "true"}`)
+so a changed Secret restarts it. Without `appservices`, nothing is mounted
+and the config is unchanged.
+
 ## Delegation
 
 When `serverName` differs from `hostname`, set `wellKnown.delegation.enabled`

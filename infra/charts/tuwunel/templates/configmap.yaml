@@ -29,6 +29,11 @@ data:
 
     access_token_ttl = {{ .Values.tokens.accessTokenTtl | int64 }}
     refresh_token_ttl = {{ .Values.tokens.refreshTokenTtl | int64 }}
+    {{- if .Values.appservices.existingSecret }}
+
+    # Appservice registrations from the {{ .Values.appservices.existingSecret }} Secret, read at startup.
+    appservice_dir = "{{ include "tuwunel.appservicesDir" . }}"
+    {{- end }}
     {{- with .Values.extraConfig }}
 
     {{- . | trim | nindent 4 }}
