@@ -99,6 +99,35 @@ describe('OratioProvider', () => {
     expect(seen).toBeNull();
   });
 
+  it('starts again when the host renews a logged-out session for the same device', async () => {
+    const first = fakeClient();
+    const second = fakeClient();
+    vi.mocked(startClient).mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    let seen: MatrixClient | null = null;
+    const probe = (c: MatrixClient | null) => {
+      seen = c;
+    };
+    const { rerender } = render(
+      <OratioProvider session={session}>
+        <Probe onClient={probe} />
+      </OratioProvider>,
+    );
+    await waitFor(() => expect(seen).toBe(first));
+
+    act(() => {
+      first.emit(HttpApiEvent.SessionLoggedOut, new Error('M_UNKNOWN_TOKEN'));
+    });
+    expect(seen).toBeNull();
+
+    rerender(
+      <OratioProvider session={{ ...session, accessToken: 'token-renewed' }}>
+        <Probe onClient={probe} />
+      </OratioProvider>,
+    );
+    await waitFor(() => expect(seen).toBe(second));
+    expect(startClient).toHaveBeenCalledTimes(2);
+  });
+
   it('reports a client that cannot start', async () => {
     vi.mocked(startClient).mockRejectedValue(new Error('unreachable'));
     const onError = vi.fn();
