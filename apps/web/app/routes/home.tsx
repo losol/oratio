@@ -19,7 +19,9 @@ function Actions({ onRoomCreated }: { onRoomCreated: (roomId: string) => void })
   const navigate = useNavigate();
   const client = useOratioClient();
   const createRoom = useCreateRoom();
-  const me = parseUserId(client?.getUserId() ?? '')?.localpart;
+  // The display name: with Keycloak sign-in the localpart is the user's UUID.
+  const userId = client?.getUserId() ?? '';
+  const me = client?.getUser(userId)?.displayName || parseUserId(userId)?.localpart;
 
   async function create() {
     const name = window.prompt('Navn på rommet');

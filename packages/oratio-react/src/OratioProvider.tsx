@@ -56,8 +56,22 @@ export function OratioProvider({
   const userId = session?.userId;
   const deviceId = session?.deviceId;
 
+  // After the homeserver logs the session out, a new token from the host
+  // starts a new client, even for the same device. Other token changes are
+  // the client's own refreshes and must not restart it.
+  const loggedOutToken = useRef<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const accessToken = session?.accessToken;
+  useEffect(() => {
+    if (loggedOutToken.current !== null && accessToken && accessToken !== loggedOutToken.current) {
+      loggedOutToken.current = null;
+      setGeneration((g) => g + 1);
+    }
+  }, [accessToken]);
+
   // Only these identify the client: token updates for the same device are
-  // the client's own refreshes.
+  // the client's own refreshes. generation counts sessions renewed after a
+  // logout.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the session is read through latest
   useEffect(() => {
     const current = latest.current.session;
@@ -68,6 +82,7 @@ export function OratioProvider({
     let started: MatrixClient | null = null;
     let cancelled = false;
     const loggedOut = () => {
+      loggedOutToken.current = latest.current.session?.accessToken ?? '';
       started?.stopClient();
       setClient(null);
       latest.current.onLoggedOut?.();
@@ -96,7 +111,7 @@ export function OratioProvider({
       started?.stopClient();
       setClient(null);
     };
-  }, [homeserverUrl, userId, deviceId]);
+  }, [homeserverUrl, userId, deviceId, generation]);
 
   return <ClientContext.Provider value={client}>{children}</ClientContext.Provider>;
 }

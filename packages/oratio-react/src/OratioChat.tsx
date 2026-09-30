@@ -17,7 +17,7 @@ import { ChatChannelList, ChatLog } from '@eventuras/ratio-ui/chat';
 import { Button } from '@eventuras/ratio-ui/core/Button';
 import { Input } from '@eventuras/ratio-ui/forms';
 import { myName, useSendMessage } from './actions';
-import { type OratioChatLabels, oratioChatLabelsNb } from './labels';
+import { type OratioChatLabels, resolveLabels } from './labels';
 import { useOratioClient } from './OratioProvider';
 import { useRooms } from './useRooms';
 import { useTimeline } from './useTimeline';
@@ -60,10 +60,11 @@ export function OratioChat({
   className,
   style,
 }: OratioChatProps) {
-  const labels = { ...oratioChatLabelsNb, ...labelOverrides };
+  const labels = resolveLabels(labelOverrides);
   const client = useOratioClient();
   const rooms = useRooms();
   const [selectedId, setSelectedId] = useState<string | null>(defaultRoomId ?? null);
+  const [sendFailed, setSendFailed] = useState(false);
   const roomId = fixedRoomId ?? selectedId ?? rooms[0]?.id ?? null;
   const room = rooms.find((room) => room.id === roomId);
   const messages = useTimeline(roomId, { locale });
@@ -101,10 +102,18 @@ export function OratioChat({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const text = String(new FormData(form).get('text') ?? '');
-    form.reset();
+    const field = form.elements.namedItem('text') as HTMLInputElement | null;
+    const text = field?.value ?? '';
+    if (field) field.value = '';
+    setSendFailed(false);
     following.current = true;
-    await send(text);
+    try {
+      await send(text);
+    } catch {
+      // Keep what the user wrote, unless they have started on something new.
+      if (field && !field.value) field.value = text;
+      setSendFailed(true);
+    }
   }
 
   return (
@@ -153,17 +162,24 @@ export function OratioChat({
             {labels.encryptedRoom}
           </p>
         ) : (
-          <form onSubmit={submit} style={{ display: 'flex', gap: 8, padding: '12px 22px 14px' }}>
-            <Input
-              name="text"
-              aria-label={labels.message}
-              placeholder={client ? labels.messagePlaceholder : labels.connecting}
-              autoComplete="off"
-              style={{ flex: 1 }}
-            />
-            <Button type="submit" isDisabled={!client || !roomId}>
-              {labels.send}
-            </Button>
+          <form onSubmit={submit} style={{ padding: '12px 22px 14px' }}>
+            {sendFailed && (
+              <p role="alert" style={{ margin: '0 0 8px' }}>
+                {labels.sendFailed}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Input
+                name="text"
+                aria-label={labels.message}
+                placeholder={client ? labels.messagePlaceholder : labels.connecting}
+                autoComplete="off"
+                style={{ flex: 1 }}
+              />
+              <Button type="submit" isDisabled={!client || !roomId}>
+                {labels.send}
+              </Button>
+            </div>
           </form>
         )}
       </section>
