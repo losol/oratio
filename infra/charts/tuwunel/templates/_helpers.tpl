@@ -40,3 +40,5 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 {{- end -}}
 
 {{- define "tuwunel.secretsDir" -}}/run/secrets/tuwunel{{- end -}}
+
+{{- define "tuwunel.appservicesDir" -}}/etc/tuwunel/appservices{{- end -}}

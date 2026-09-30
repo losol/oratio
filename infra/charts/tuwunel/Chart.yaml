@@ -2,7 +2,7 @@ apiVersion: v2
 name: tuwunel
 description: Tuwunel Matrix homeserver (matrix-construct/tuwunel), with optional Keycloak sign-in
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "v1.9.3"
 home: https://github.com/losol/oratio
 sources:

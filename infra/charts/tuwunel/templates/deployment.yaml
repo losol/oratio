@@ -65,6 +65,11 @@ spec:
               mountPath: {{ include "tuwunel.secretsDir" . }}
               readOnly: true
             {{- end }}
+            {{- if .Values.appservices.existingSecret }}
+            - name: appservices
+              mountPath: {{ include "tuwunel.appservicesDir" . }}
+              readOnly: true
+            {{- end }}
             - name: data
               mountPath: /var/lib/tuwunel
             - name: tmp
@@ -93,6 +98,13 @@ spec:
         - name: secrets
           secret:
             secretName: {{ .Values.existingSecret }}
+        {{- end }}
+        {{- if .Values.appservices.existingSecret }}
+        # A plain Secret volume, referenced from the pod spec, so Reloader
+        # restarts the pod when a registration changes.
+        - name: appservices
+          secret:
+            secretName: {{ .Values.appservices.existingSecret }}
         {{- end }}
         - name: tmp
           emptyDir: {}

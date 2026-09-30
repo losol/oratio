@@ -34,6 +34,21 @@ federation:
 # The chart never creates it: make it with Infisical, kubectl or similar.
 existingSecret: ""
 
+# Application services: bridges, bots, or a host app such as civitas that
+# signs its users in itself. Off by default.
+appservices:
+  # Secret whose keys are appservice registrations in Synapse's YAML format,
+  # one per appservice, e.g. lk_staging.yaml. It is mounted as a directory and
+  # Tuwunel loads every file in it (appservice_dir). The registrations hold
+  # as_token and hs_token, which Tuwunel cannot read from files of their own,
+  # so they belong in a Secret, not in the config. The chart never creates it.
+  #
+  # Tuwunel reads the directory only at startup. The Secret is mounted as a
+  # volume of the pod, so a change restarts the pod when the pod is annotated
+  # for Stakater Reloader (reloader.stakater.com/auto: "true"). Keep it
+  # referenced from the pod spec, or changes will not reach Tuwunel.
+  existingSecret: ""
+
 registration:
   # Password registration, gated by the registration_token key in existingSecret.
   enabled: false
