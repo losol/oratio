@@ -111,6 +111,57 @@ identityProviders: []
 # Appended to the [global] table as-is, for settings the chart does not model.
 extraConfig: ""
 
+# Daily online backup of the database to S3-compatible storage, without
+# downtime. A sidecar signals Tuwunel (SIGUSR2) to write a RocksDB checkpoint,
+# streams it to the bucket as a tar.gz, copies media/ alongside, and prunes old
+# backups. Where the backups go is the deployment's choice: nothing here
+# defaults to a provider or bucket. Off by default.
+#
+# Restore: download a database archive, extract it, and use the checkpoint/
+# directory as database_path (with media/ copied back into it). Manual backup:
+#   kubectl exec deploy/<release>-tuwunel -c backup -- /scripts/backup.sh manual
+backup:
+  enabled: false
+  # Daily run, HH:MM in UTC (the image has no time zones).
+  time: "01:00"
+  s3:
+    # rclone's provider name: AWS, Scaleway, Minio, Cloudflare, Other, …
+    provider: Other
+    # Empty for AWS.
+    endpoint: ""
+    region: ""
+    bucket: ""
+    # Defaults to the release's full name.
+    prefix: ""
+  # Secret with the S3 credentials. The chart never creates it.
+  existingSecret: ""
+  secretKeys:
+    accessKeyId: access-key-id
+    secretAccessKey: secret-access-key
+  # Days to keep each tier; 0 keeps them forever. Weekly is taken on Mondays,
+  # monthly on the 1st. Keeping messages forever is a data-retention decision,
+  # so no tier does by default.
+  retention:
+    dailyDays: 7
+    weeklyDays: 28
+    monthlyDays: 365
+  # Also copy media/ (uploads), which checkpoints do not include. Copied
+  # without deleting, so removed media stays in the bucket.
+  media: true
+  # How long to wait for Tuwunel to finish the checkpoint.
+  checkpointTimeoutSeconds: 600
+  image:
+    registry: docker.io
+    repository: rclone/rclone
+    tag: "1.75.1"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 256Mi
+
 httpRoute:
   enabled: true
   gateway:

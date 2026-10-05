@@ -29,6 +29,11 @@ data:
 
     access_token_ttl = {{ .Values.tokens.accessTokenTtl | int64 }}
     refresh_token_ttl = {{ .Values.tokens.refreshTokenTtl | int64 }}
+    {{- if .Values.backup.enabled }}
+
+    # SIGUSR2 writes a checkpoint for the backup sidecar to upload.
+    admin_signal_execute = ["server checkpoint-database --path {{ include "tuwunel.backupDir" . }}/checkpoint"]
+    {{- end }}
     {{- if .Values.appservices.existingSecret }}
 
     # Appservice registrations from the {{ .Values.appservices.existingSecret }} Secret, read at startup.
