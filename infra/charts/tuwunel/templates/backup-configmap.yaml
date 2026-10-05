@@ -1,0 +1,107 @@
+{{- if .Values.backup.enabled }}
+{{- $dir := include "tuwunel.backupDir" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tuwunel.fullname" . }}-backup
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+data:
+  # Sleeps until the daily time, runs a backup, repeats. A failed run is
+  # logged and tried again the next day; last-success.json shows the last
+  # good one.
+  loop.sh: |
+    #!/bin/sh
+    set -u
+    while true; do
+      now=$(date -u +%s)
+      next=$(date -u -d "$(date -u +%Y-%m-%d) ${BACKUP_TIME}" +%s)
+      [ "$next" -le "$now" ] && next=$((next + 86400))
+      echo "next backup at $(date -u -d "@${next}" +%Y-%m-%dT%H:%MZ)"
+      sleep $((next - now))
+      /scripts/backup.sh || echo "!!! backup failed"
+    done
+
+  # backup.sh [manual]
+  backup.sh: |
+    #!/bin/sh
+    set -eu
+    set -o pipefail
+
+    tier_arg="${1:-scheduled}"
+    dir={{ $dir }}
+    checkpoint="${dir}/checkpoint"
+    remote="s3:${S3_BUCKET}/${S3_PREFIX}"
+
+    # One run at a time: a manual backup during the scheduled one waits its turn.
+    lock=/tmp/backup.lock
+    until mkdir "$lock" 2>/dev/null; do sleep 5; done
+    trap 'rm -rf "$lock" "$checkpoint" "${checkpoint}.tmp"' EXIT
+
+    # Configured through the environment, so no credential is written to disk.
+    : > /tmp/rclone.conf
+    export RCLONE_CONFIG=/tmp/rclone.conf RCLONE_CACHE_DIR=/tmp/rclone-cache
+    export RCLONE_CONFIG_S3_TYPE=s3
+    export RCLONE_CONFIG_S3_PROVIDER="${S3_PROVIDER}"
+    export RCLONE_CONFIG_S3_ENDPOINT="${S3_ENDPOINT}"
+    export RCLONE_CONFIG_S3_REGION="${S3_REGION}"
+
+    echo "=== backup $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+    # Tuwunel writes the checkpoint to checkpoint.tmp and renames it when done,
+    # and refuses to overwrite: clear what an interrupted run left behind.
+    rm -rf "$checkpoint" "${checkpoint}.tmp"
+    mkdir -p "$dir"
+    pid=$(pidof tuwunel)
+    kill -USR2 "$pid"
+    waited=0
+    until [ -f "${checkpoint}/CURRENT" ]; do
+      if [ "$waited" -ge "${CHECKPOINT_TIMEOUT}" ]; then
+        echo "  !!! no checkpoint after ${waited}s"
+        exit 1
+      fi
+      sleep 2
+      waited=$((waited + 2))
+    done
+    echo "  checkpoint ready after ${waited}s"
+
+    ts=$(date -u +%Y-%m-%dT%H%MZ)
+    base="database/tuwunel-${ts}"
+    if [ "$tier_arg" = manual ]; then
+      tiers=manual
+    else
+      tiers=daily
+      [ "$(date -u +%u)" = 1 ] && tiers="$tiers weekly"
+      [ "$(date -u +%d)" = 01 ] && tiers="$tiers monthly"
+    fi
+
+    first=""
+    for tier in $tiers; do
+      object="${base}-${tier}.tar.gz"
+      if [ -z "$first" ]; then
+        tar -czf - -C "$dir" checkpoint | rclone rcat "${remote}/${object}"
+        first="$object"
+      else
+        rclone copyto "${remote}/${first}" "${remote}/${object}"
+      fi
+      echo "  uploaded ${object}"
+    done
+
+    if [ "${BACKUP_MEDIA}" = true ] && [ -d /var/lib/tuwunel/media ]; then
+      rclone copy /var/lib/tuwunel/media "${remote}/media"
+      echo "  copied media/"
+    fi
+
+    prune() {
+      tier="$1"; days="$2"
+      [ "$days" -gt 0 ] || return 0
+      rclone delete "${remote}/database" --include "*-${tier}.tar.gz" --min-age "${days}d"
+    }
+    prune daily "${KEEP_DAILY_DAYS}"
+    prune weekly "${KEEP_WEEKLY_DAYS}"
+    prune monthly "${KEEP_MONTHLY_DAYS}"
+
+    printf '{"time":"%s","object":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$first" \
+      | rclone rcat "${remote}/last-success.json"
+    echo "=== done: ${first} ==="
+{{- end }}

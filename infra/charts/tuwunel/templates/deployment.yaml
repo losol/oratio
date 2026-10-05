@@ -1,4 +1,8 @@
 {{- $needsSecret := or .Values.registration.enabled (gt (len .Values.identityProviders) 0) -}}
+{{- if .Values.backup.enabled }}
+{{- if not .Values.backup.s3.bucket }}{{ fail "backup.s3.bucket is required when backup is enabled" }}{{ end }}
+{{- if not .Values.backup.existingSecret }}{{ fail "backup.existingSecret is required when backup is enabled" }}{{ end }}
+{{- end }}
 {{- if and $needsSecret (not .Values.existingSecret) }}
 {{- fail "existingSecret is required when registration or identityProviders are enabled" }}
 {{- end }}
@@ -22,6 +26,9 @@ spec:
         {{- include "tuwunel.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.backup.enabled }}
+        checksum/backup: {{ include (print $.Template.BasePath "/backup-configmap.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,6 +38,10 @@ spec:
       # namespace. A Service named like "tuwunel" yields TUWUNEL_PORT=tcp://…,
       # which Tuwunel reads as config and rejects. Tuwunel uses DNS anyway.
       enableServiceLinks: false
+      {{- if .Values.backup.enabled }}
+      # The backup sidecar signals Tuwunel (SIGUSR2) to write a checkpoint.
+      shareProcessNamespace: true
+      {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -90,6 +101,62 @@ spec:
               port: http
             initialDelaySeconds: 20
             periodSeconds: 30
+        {{- if .Values.backup.enabled }}
+        - name: backup
+          image: "{{ .Values.backup.image.registry }}/{{ .Values.backup.image.repository }}:{{ .Values.backup.image.tag }}"
+          imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
+          command: ["/bin/sh", "/scripts/loop.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: BACKUP_TIME
+              value: {{ .Values.backup.time | quote }}
+            - name: S3_PROVIDER
+              value: {{ .Values.backup.s3.provider | quote }}
+            - name: S3_ENDPOINT
+              value: {{ .Values.backup.s3.endpoint | quote }}
+            - name: S3_REGION
+              value: {{ .Values.backup.s3.region | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.backup.s3.bucket | quote }}
+            - name: S3_PREFIX
+              value: {{ include "tuwunel.backupPrefix" . | quote }}
+            - name: RCLONE_CONFIG_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backup.existingSecret }}
+                  key: {{ .Values.backup.secretKeys.accessKeyId }}
+            - name: RCLONE_CONFIG_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backup.existingSecret }}
+                  key: {{ .Values.backup.secretKeys.secretAccessKey }}
+            - name: KEEP_DAILY_DAYS
+              value: {{ .Values.backup.retention.dailyDays | quote }}
+            - name: KEEP_WEEKLY_DAYS
+              value: {{ .Values.backup.retention.weeklyDays | quote }}
+            - name: KEEP_MONTHLY_DAYS
+              value: {{ .Values.backup.retention.monthlyDays | quote }}
+            - name: BACKUP_MEDIA
+              value: {{ .Values.backup.media | quote }}
+            - name: CHECKPOINT_TIMEOUT
+              value: {{ .Values.backup.checkpointTimeoutSeconds | quote }}
+          volumeMounts:
+            - name: backup-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/tuwunel
+            - name: backup-tmp
+              mountPath: /tmp
+          {{- with .Values.backup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
@@ -108,6 +175,15 @@ spec:
         {{- end }}
         - name: tmp
           emptyDir: {}
+        {{- if .Values.backup.enabled }}
+        - name: backup-scripts
+          configMap:
+            name: {{ include "tuwunel.fullname" . }}-backup
+            defaultMode: 0755
+        - name: backup-tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- end }}
         - name: data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:

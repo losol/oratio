@@ -102,6 +102,61 @@ Stakater Reloader (`podAnnotations: {reloader.stakater.com/auto: "true"}`)
 so a changed Secret restarts it. Without `appservices`, nothing is mounted
 and the config is unchanged.
 
+## Backup
+
+A daily online backup to S3-compatible storage, without downtime. Off by
+default, and nothing defaults to a provider or bucket:
+
+```yaml
+backup:
+  enabled: true
+  time: "01:00"                  # UTC
+  s3:
+    provider: Scaleway           # rclone's name: AWS, Scaleway, Minio, Other, …
+    endpoint: https://s3.nl-ams.scw.cloud
+    region: nl-ams
+    bucket: my-backups
+    prefix: losol-matrix         # defaults to the release's full name
+  existingSecret: tuwunel-backup # keys access-key-id, secret-access-key
+  retention:                     # days per tier; 0 keeps forever
+    dailyDays: 7
+    weeklyDays: 28               # Mondays
+    monthlyDays: 365             # the 1st
+```
+
+A sidecar in the pod shares its process namespace with Tuwunel. At the set
+time it sends SIGUSR2, and Tuwunel writes a RocksDB checkpoint
+(`admin_signal_execute`). The sidecar streams it to the bucket as a tar.gz,
+copies `media/`, which checkpoints leave out, and prunes old archives. It
+uses rclone, configured from the environment only.
+
+```text
+<bucket>/<prefix>/
+├── database/tuwunel-2026-10-05T0100Z-daily.tar.gz   (also -weekly, -monthly, -manual)
+├── media/…                                           copied, never deleted
+└── last-success.json                                 time and object of the last good run
+```
+
+**Watch it.** A failed run is logged and retried the next day; nothing else
+notices. Alert when `last-success.json` is more than a day old.
+
+**Manual backup**, e.g. before an upgrade. Manual archives are never pruned:
+
+```sh
+kubectl exec deploy/<release>-tuwunel -c backup -- /scripts/backup.sh manual
+```
+
+**Restore:**
+
+1. Scale the Deployment to 0.
+2. Download a database archive and extract it: it holds `checkpoint/`.
+3. Replace the contents of the data volume with those of `checkpoint/`.
+4. Copy the bucket's `media/` files back into `media/` on the volume.
+5. Scale back to 1.
+
+Retention is a data decision: messages in a monthly archive outlive their
+deletion in Tuwunel by up to `monthlyDays`.
+
 ## Delegation
 
 When `serverName` differs from `hostname`, set `wellKnown.delegation.enabled`

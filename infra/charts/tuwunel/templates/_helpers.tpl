@@ -42,3 +42,9 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 {{- define "tuwunel.secretsDir" -}}/run/secrets/tuwunel{{- end -}}
 
 {{- define "tuwunel.appservicesDir" -}}/etc/tuwunel/appservices{{- end -}}
+
+{{- define "tuwunel.backupDir" -}}/var/lib/tuwunel/backup{{- end -}}
+
+{{- define "tuwunel.backupPrefix" -}}
+{{- default (include "tuwunel.fullname" .) .Values.backup.s3.prefix | trimSuffix "/" -}}
+{{- end -}}
