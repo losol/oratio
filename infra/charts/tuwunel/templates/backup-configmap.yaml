@@ -13,6 +13,7 @@ data:
   loop.sh: |
     #!/bin/sh
     set -u
+    rm -rf /tmp/backup.lock
     while true; do
       now=$(date -u +%s)
       next=$(date -u -d "$(date -u +%Y-%m-%d) ${BACKUP_TIME}" +%s)
