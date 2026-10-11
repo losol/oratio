@@ -23,6 +23,14 @@ export interface OratioChatLabels {
   noRoom: string;
   /** Shown when a message could not be sent. Its text stays in the field. */
   sendFailed: string;
+  /** Button at the top of the log that loads older messages. */
+  loadOlder: string;
+  /** Shown while older messages load. */
+  loadingOlder: string;
+  /** Button that leaves an older part of the room for the latest messages. */
+  jumpToLatest: string;
+  /** Shown when the message to open the room at was not found. */
+  messageMissing: string;
   /** Built-in text of the room list. Merged per entry with the defaults. */
   roomList?: ChatChannelListLabels;
   /** Built-in text of the message log. Merged per entry with the defaults. */
@@ -40,6 +48,10 @@ export const oratioChatLabelsNb: OratioChatLabels = {
     'Dette rommet er ende-til-ende-kryptert. oratio kan ikke lese eller sende krypterte meldinger ennå.',
   noRoom: 'Ingen rom ennå.',
   sendFailed: 'Meldingen ble ikke sendt. Prøv igjen.',
+  loadOlder: 'Vis eldre meldinger',
+  loadingOlder: 'Henter eldre meldinger…',
+  jumpToLatest: 'Til nyeste meldinger',
+  messageMissing: 'Fant ikke meldingen. Den kan være slettet.',
   roomList: {
     unread: (count) => `${count} uleste`,
     mention: 'Nevnt',
@@ -64,6 +76,10 @@ export const oratioChatLabelsEn: OratioChatLabels = {
     'This room is end-to-end encrypted. oratio cannot read or send encrypted messages yet.',
   noRoom: 'No rooms yet.',
   sendFailed: 'The message was not sent. Try again.',
+  loadOlder: 'Show older messages',
+  loadingOlder: 'Loading older messages…',
+  jumpToLatest: 'Jump to latest messages',
+  messageMissing: 'The message was not found. It may have been deleted.',
   roomList: {
     unread: (count) => `${count} unread`,
     mention: 'Mentioned',

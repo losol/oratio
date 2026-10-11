@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -30,6 +31,12 @@ export interface OratioChatProps {
   roomId?: string;
   /** The room to open first when the room list shows. @default the first room */
   defaultRoomId?: string;
+  /**
+   * Open the room at this message, e.g. from a link to it: the log scrolls
+   * to it and highlights it. An older message shows in the part of the room
+   * around it, until the user scrolls on to the latest.
+   */
+  around?: string;
   /** Called when the user opens another room from the list. */
   onRoomChange?: (roomId: string) => void;
   /** Text, e.g. from the host's translations. Missing entries fall back to Norwegian Bokmål. */
@@ -43,8 +50,8 @@ export interface OratioChatProps {
 }
 
 // Within this distance of the end the log counts as read to the end, and
-// follows new messages.
-const followThreshold = 48;
+// follows new messages; within it of either edge, it loads more.
+const edgeThreshold = 48;
 
 /**
  * A complete chat for the client of the nearest `OratioProvider`: room list,
@@ -53,6 +60,7 @@ const followThreshold = 48;
 export function OratioChat({
   roomId: fixedRoomId,
   defaultRoomId,
+  around,
   onRoomChange,
   labels: labelOverrides,
   locale,
@@ -67,32 +75,71 @@ export function OratioChat({
   const [sendFailed, setSendFailed] = useState(false);
   const roomId = fixedRoomId ?? selectedId ?? rooms[0]?.id ?? null;
   const room = rooms.find((room) => room.id === roomId);
-  const messages = useTimeline(roomId, { locale });
+  const timeline = useTimeline(roomId, { locale, around });
+  const { messages, hasOlder, loadingOlder, hasNewer, focusId } = timeline;
   const send = useSendMessage(roomId);
   const showList = fixedRoomId === undefined;
 
   // ChatLog leaves scrolling to the caller: follow new messages while the
-  // user is at the end, and start each room at its end.
+  // user is at the end, and start each room at its end, or at the message it
+  // opens at, which ChatLog scrolls to itself. Scrolling to the top loads
+  // older messages, and to the end of an older part of the room, newer ones.
   const logRef = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
+  const following = useRef(!around);
+  // Distance from the end before older messages load, to keep the view still.
+  const anchor = useRef<number | null>(null);
+  const [atTop, setAtTop] = useState(false);
+  const latest = useRef(timeline);
+  latest.current = timeline;
+
+  const loadOlder = useCallback(() => {
+    const log = logRef.current;
+    const { hasOlder, loadingOlder, loadOlder } = latest.current;
+    if (!log || !hasOlder || loadingOlder) return;
+    anchor.current = log.scrollHeight - log.scrollTop;
+    loadOlder().catch(() => {
+      anchor.current = null;
+    });
+  }, []);
+
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
     const onScroll = () => {
-      following.current = log.scrollHeight - log.scrollTop - log.clientHeight < followThreshold;
+      const fromEnd = log.scrollHeight - log.scrollTop - log.clientHeight;
+      const { hasNewer, loadingNewer, loadNewer } = latest.current;
+      following.current = fromEnd < edgeThreshold && !hasNewer;
+      setAtTop(log.scrollTop < edgeThreshold);
+      if (log.scrollTop < edgeThreshold) loadOlder();
+      if (fromEnd < edgeThreshold && hasNewer && !loadingNewer) loadNewer().catch(() => {});
     };
     log.addEventListener('scroll', onScroll, { passive: true });
     return () => log.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [loadOlder]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new room is the trigger, not an input
   useLayoutEffect(() => {
-    following.current = true;
-  }, [roomId]);
+    following.current = !around;
+    anchor.current = null;
+  }, [roomId, around]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: new messages are the trigger, not an input
   useLayoutEffect(() => {
     const log = logRef.current;
-    if (log && following.current) log.scrollTop = log.scrollHeight;
+    if (!log) return;
+    if (anchor.current !== null) {
+      // Older messages came in above: keep the same message in view.
+      log.scrollTop = log.scrollHeight - anchor.current;
+      anchor.current = null;
+    } else if (following.current) {
+      log.scrollTop = log.scrollHeight;
+    }
+    // A log that does not fill its box has no top to scroll to.
+    setAtTop(log.scrollTop < edgeThreshold);
   }, [messages]);
+
+  function jumpToLatest() {
+    following.current = true;
+    timeline.jumpToLatest();
+  }
 
   function select(id: string) {
     setSelectedId(id);
@@ -150,13 +197,40 @@ export function OratioChat({
             {labels.noRoom}
           </p>
         )}
+        {timeline.focusMissing && (
+          <p role="status" style={{ padding: '12px 22px 0' }}>
+            {labels.messageMissing}
+          </p>
+        )}
+        {loadingOlder ? (
+          <p role="status" style={{ padding: '8px 22px 0', margin: 0 }}>
+            {labels.loadingOlder}
+          </p>
+        ) : (
+          hasOlder &&
+          atTop && (
+            <div style={{ padding: '8px 22px 0' }}>
+              <Button variant="text" size="sm" onPress={loadOlder}>
+                {labels.loadOlder}
+              </Button>
+            </div>
+          )
+        )}
         <ChatLog
           ref={logRef}
           aria-label={labels.messages}
           me={myName(client, roomId)}
           messages={messages}
+          highlightedId={focusId}
           labels={labels.log}
         />
+        {hasNewer && (
+          <div style={{ padding: '8px 22px 0' }}>
+            <Button variant="outline" size="sm" onPress={jumpToLatest}>
+              {labels.jumpToLatest}
+            </Button>
+          </div>
+        )}
         {room?.encrypted ? (
           <p role="status" style={{ padding: '12px 22px 14px' }}>
             {labels.encryptedRoom}

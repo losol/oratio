@@ -10,7 +10,7 @@ the client only starts in the browser.
 ## Peer dependencies
 
 - `react` and `react-dom` 19
-- `@eventuras/ratio-ui` 2.25 or later, for the chat components and tokens
+- `@eventuras/ratio-ui` 2.29 or later, for the chat components and tokens
 
 ## Install
 
@@ -41,12 +41,28 @@ changes. Refreshed OIDC tokens come back through `onSessionChange`;
 
 `OratioChat` shows the room list, the log of the open room and a message
 field, and fills its container. Pass `roomId` to show one room without the
-list, e.g. the chat of one place. Text defaults to Norwegian Bokmål:
+list, e.g. the chat of one place, and `around` to open the room at a message:
+the log scrolls to it and highlights it. Scrolling to the top loads older
+messages. Text defaults to Norwegian Bokmål:
 `labels={oratioChatLabelsEn}`, or the host's own translations, change it.
 
 For your own views, the hooks read the provider's client: `useOratioClient`,
 `useRooms`, `useTimeline(roomId)`, `useSendMessage(roomId)` (`/me` sends an
 emote) and `useCreateRoom`. Each also takes `{ client }` to use another one.
+
+`useTimeline` loads older messages at once when a room opens with fewer than
+`minMessages` (20), and returns what a log needs to load more:
+
+```tsx
+const { messages, hasOlder, loadingOlder, loadOlder, focusId } = useTimeline(roomId, {
+  around: eventId, // optional: open at this message
+});
+```
+
+With `around`, `focusId` is the message to scroll to and highlight, e.g. as
+`ChatLog`'s `highlightedId`; `focusMissing` says it was not found. An older
+message opens in the part of the room around it: `hasNewer` and `loadNewer`
+page on towards the latest, and `jumpToLatest` goes straight there.
 
 ## Status
 

@@ -6,12 +6,30 @@
 // matrix-js-sdk instance as core.
 export {
   ClientEvent,
+  Direction,
+  type EventTimeline,
   EventType,
   HttpApiEvent,
   type MatrixClient,
   Preset,
   RoomEvent,
 } from 'matrix-js-sdk';
+export {
+  type BackfillOptions,
+  backfill,
+  countMessages,
+  defaultPageSize,
+  eventsFrom,
+  type HistoryClient,
+  type HistoryRoom,
+  hasNewer,
+  hasOlder,
+  loadNewer,
+  loadOlder,
+  type OpenAtResult,
+  openAt,
+  type TimelineLike,
+} from './history';
 export { type MatrixUserId, parseUserId } from './ids';
 export {
   beginOidcLogin,
@@ -36,6 +54,7 @@ export {
 } from './session';
 export {
   type EventLike,
+  isShownMessage,
   type OratioMessage,
   type TimelineOptions,
   toOratioMessages,

@@ -30,6 +30,24 @@ describe('toOratioMessages', () => {
     expect(rows[1]).toMatchObject({ type: 'action', text: 'vinker' });
   });
 
+  it('skips edits, which show in place of the message they edit', () => {
+    const original = event('m.room.message', { msgtype: 'm.text', body: 'Båten går 08.10' }, '$1');
+    const edit = event(
+      'm.room.message',
+      {
+        msgtype: 'm.text',
+        body: '* Båten går 08.25',
+        'm.new_content': { msgtype: 'm.text', body: 'Båten går 08.25' },
+        'm.relates_to': { rel_type: 'm.replace', event_id: '$1' },
+      },
+      '$2',
+    );
+    original.makeReplaced(edit);
+    const rows = toOratioMessages([original, edit]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: '$1', text: 'Båten går 08.25' });
+  });
+
   it('skips state events and messages without a text body', () => {
     const rows = toOratioMessages([
       event('m.room.member', { membership: 'join' }),

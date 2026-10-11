@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Losol AS
 // SPDX-License-Identifier: MPL-2.0
 
-import { EventType, type MatrixEvent, MsgType } from 'matrix-js-sdk';
+import { EventType, type MatrixEvent, MsgType, RelationType } from 'matrix-js-sdk';
 import { parseUserId } from './ids';
 
 /**
@@ -20,7 +20,7 @@ export interface OratioMessage {
 /** The parts of a matrix-js-sdk `MatrixEvent` the mapping reads. */
 export type EventLike = Pick<
   MatrixEvent,
-  'getId' | 'getType' | 'getContent' | 'getSender' | 'getTs' | 'isRedacted'
+  'getId' | 'getType' | 'getContent' | 'getSender' | 'getTs' | 'isRedacted' | 'isRelation'
 > & { sender?: { name: string } | null };
 
 export interface TimelineOptions {
@@ -29,8 +29,23 @@ export interface TimelineOptions {
 }
 
 /**
- * Maps timeline events to log rows: text messages, notices and `/me` emotes.
- * Everything else (state changes, reactions, encrypted events) is skipped for now.
+ * Whether an event shows in the log: a text message, notice or `/me` emote
+ * that is not redacted. An edit (`m.replace`) does not show as a message of
+ * its own: matrix-js-sdk shows its text in place of the message it edits.
+ */
+export function isShownMessage(event: EventLike): boolean {
+  return (
+    event.getType() === EventType.RoomMessage &&
+    !event.isRedacted() &&
+    !event.isRelation(RelationType.Replace) &&
+    typeof event.getContent<{ body?: unknown }>().body === 'string'
+  );
+}
+
+/**
+ * Maps timeline events to log rows: text messages, notices and `/me` emotes,
+ * with the latest text of edited ones. Everything else (state changes,
+ * reactions, edits themselves, encrypted events) is skipped for now.
  */
 export function toOratioMessages(
   events: readonly EventLike[],
@@ -40,13 +55,10 @@ export function toOratioMessages(
   const messages: OratioMessage[] = [];
   for (const event of events) {
     const id = event.getId();
-    if (!id || event.getType() !== EventType.RoomMessage || event.isRedacted()) {
+    if (!id || !isShownMessage(event)) {
       continue;
     }
-    const content = event.getContent<{ msgtype?: string; body?: unknown }>();
-    if (typeof content.body !== 'string') {
-      continue;
-    }
+    const content = event.getContent<{ msgtype?: string; body: string }>();
     const sender = event.getSender() ?? '';
     messages.push({
       id,

@@ -17,6 +17,7 @@ describe('resolveLabels', () => {
   });
 
   it('defines every entry in both languages', () => {
+    expect(Object.keys(oratioChatLabelsEn).sort()).toEqual(Object.keys(oratioChatLabelsNb).sort());
     for (const labels of [oratioChatLabelsNb, oratioChatLabelsEn]) {
       expect(Object.keys(labels.roomList ?? {}).sort()).toEqual(
         ['members', 'mention', 'muted', 'presence', 'unread'].sort(),
