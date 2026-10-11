@@ -13,7 +13,7 @@
   "dependencies": {
     "@eventuras/oratio-core": "workspace:*",
     "@eventuras/oratio-react": "workspace:*",
-    "@eventuras/ratio-ui": "^2.25.0",
+    "@eventuras/ratio-ui": "^2.31.1",
     "isbot": "^5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

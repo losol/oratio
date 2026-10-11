@@ -74,6 +74,8 @@ export async function startClient(
     tokenRefreshFunction: refresher?.tokenRefreshFunction,
     // No voice or video: skip the TURN server lookup that calls need.
     disableVoip: true,
+    // Lets a room open at an older message, in a timeline loaded around it.
+    timelineSupport: true,
   });
   await client.startClient({ initialSyncLimit: 50 });
   return client;
