@@ -59,10 +59,16 @@ const { messages, hasOlder, loadingOlder, loadOlder, focusId } = useTimeline(roo
 });
 ```
 
+`loadOlder()` adds at least 10 messages per call where the room has them,
+however much state lies between, in at most 5 requests; pass
+`{ minMessages, maxPages }` to change that, or a number for one request of
+that many events, as in 0.2.
+
 With `around`, `focusId` is the message to scroll to and highlight, e.g. as
-`ChatLog`'s `highlightedId`; `focusMissing` says it was not found. An older
-message opens in the part of the room around it: `hasNewer` and `loadNewer`
-page on towards the latest, and `jumpToLatest` goes straight there.
+`ChatLog`'s `highlightedId`; `focusMissing` says it was not found. The room
+opens with about `minMessages` messages around it. An older message opens in
+the part of the room around it: `hasNewer` and `loadNewer` page on towards
+the latest, as `loadOlder` does back, and `jumpToLatest` goes straight there.
 
 ## Status
 

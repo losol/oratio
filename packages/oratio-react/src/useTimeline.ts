@@ -9,11 +9,11 @@ import {
   backfill,
   ClientEvent,
   countMessages,
-  defaultPageSize,
   type EventTimeline,
   eventsFrom,
   hasNewer,
   hasOlder,
+  type LoadOptions,
   loadNewer as loadNewerEvents,
   loadOlder as loadOlderEvents,
   type MatrixClient,
@@ -40,7 +40,10 @@ export interface UseTimelineOptions extends TimelineOptions, ClientOption {
    * if need be, and returned as `focusId` to scroll to and highlight.
    */
   around?: string;
-  /** When a room opens with fewer messages, older ones are loaded. @default 20 */
+  /**
+   * When a room opens with fewer messages, older ones are loaded; a room
+   * opened `around` a message gets about this many around it. @default 20
+   */
   minMessages?: number;
   /** Requests to make for `minMessages` or `around` before giving up. @default 5 */
   maxPages?: number;
@@ -53,16 +56,26 @@ export interface OratioTimeline {
   hasOlder: boolean;
   /** Older messages are being loaded, when the room opens or on request. */
   loadingOlder: boolean;
-  /** Loads up to `limit` older events, for a "load older" control or infinite scroll. */
-  loadOlder: (limit?: number) => Promise<void>;
+  /**
+   * Loads older messages, for a "load older" control or infinite scroll:
+   * pages back until this call has added `minMessages` messages (10), the
+   * room's start, or `maxPages` requests (5). A number is one request for
+   * that many events, as in 0.2.
+   */
+  loadOlder: (options?: number | LoadOptions) => Promise<void>;
   /**
    * Later messages can be loaded: true while showing a part of the room
    * loaded around an older message, until it meets the latest messages.
    */
   hasNewer: boolean;
   loadingNewer: boolean;
-  /** Loads up to `limit` later events, as the user scrolls towards the end. */
-  loadNewer: (limit?: number) => Promise<void>;
+  /**
+   * Loads later messages into a part of the room around an older message,
+   * as the user scrolls towards the end: until this call has added
+   * `minMessages` messages (10), it meets the latest, or `maxPages` requests
+   * (5). A number is one request for that many events, as in 0.2.
+   */
+  loadNewer: (options?: number | LoadOptions) => Promise<void>;
   /** Leaves the part around an older message for the latest messages. */
   jumpToLatest: () => void;
   /** The message `around` points at, once it is loaded. */
@@ -189,7 +202,9 @@ export function useTimeline(
     void (async () => {
       if (around) {
         setLoadingOlder(true);
-        const found = await openAt(client, room, around, { maxPages }).catch(() => null);
+        const found = await openAt(client, room, around, { minMessages, maxPages }).catch(
+          () => null,
+        );
         if (cancelled) return;
         focusRef.current = found ? { focusId: around, focusMissing: false } : missing;
         if (found && !found.live) detachedRef.current = found.timeline;
@@ -208,13 +223,13 @@ export function useTimeline(
   }, [client, roomId, around, minMessages, maxPages, locale, roomSeen]);
 
   const loadOlder = useCallback(
-    async (limit = defaultPageSize) => {
+    async (options: number | LoadOptions = {}) => {
       const timeline = client && shown(client);
       if (!client || !timeline || pending.current.older) return;
       pending.current.older = true;
       setLoadingOlder(true);
       try {
-        await loadOlderEvents(client, timeline, limit);
+        await loadOlderEvents(client, timeline, options);
       } finally {
         pending.current.older = false;
         setLoadingOlder(false);
@@ -225,13 +240,13 @@ export function useTimeline(
   );
 
   const loadNewer = useCallback(
-    async (limit = defaultPageSize) => {
+    async (options: number | LoadOptions = {}) => {
       const timeline = detachedRef.current;
       if (!client || !timeline || pending.current.newer) return;
       pending.current.newer = true;
       setLoadingNewer(true);
       try {
-        await loadNewerEvents(client, timeline, limit);
+        await loadNewerEvents(client, timeline, options);
       } finally {
         pending.current.newer = false;
         setLoadingNewer(false);

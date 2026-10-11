@@ -91,26 +91,117 @@ export function hasNewer(timeline: TimelineLike, live: TimelineLike): boolean {
   return timeline.getPaginationToken(Direction.Forward) !== null;
 }
 
+export interface LoadOptions {
+  /** Stop once this call has added this many messages. @default 10 */
+  minMessages?: number;
+  /** Give up after this many requests. @default 5 */
+  maxPages?: number;
+  /** Events per request. @default 50 */
+  pageSize?: number;
+}
+
+/** Shown messages in the timeline and the timelines it runs on into. */
+function messagesIn(timeline: TimelineLike): number {
+  return eventsFrom(timeline).filter(isShownMessage).length;
+}
+
+/** The live timeline of its room, which only sync extends forwards. */
+function isLive(timeline: EventTimeline): boolean {
+  return timeline.getTimelineSet?.()?.getLiveTimeline?.() === timeline;
+}
+
 /**
- * Loads up to `limit` older events into the timeline. Resolves false at the
- * room's start, when there is nothing older.
+ * Whether paging the timeline forwards can bring anything: not for the live
+ * one, nor once it has met another timeline. matrix-js-sdk links timelines
+ * that meet but keeps the old token, so the link, not the token, says so.
+ */
+function canPageForward(timeline: EventTimeline): boolean {
+  return (
+    !isLive(timeline) &&
+    timeline.getNeighbouringTimeline(Direction.Forward) === null &&
+    timeline.getPaginationToken(Direction.Forward) !== null
+  );
+}
+
+/** One request back. A page that brings nothing ends the paging there. */
+async function pageBack(
+  client: HistoryClient,
+  timeline: EventTimeline,
+  pageSize: number,
+): Promise<boolean> {
+  if (!hasOlder(timeline)) return false;
+  const before = timeline.getEvents().length;
+  const more = await client.paginateEventTimeline(timeline, { backwards: true, limit: pageSize });
+  // Some homeservers hand out a token at the room's start that only leads to
+  // an empty page: treat that page as the start.
+  if (
+    more &&
+    timeline.getEvents().length === before &&
+    timeline.getNeighbouringTimeline(Direction.Backward) === null
+  ) {
+    timeline.setPaginationToken(null, Direction.Backward);
+    return false;
+  }
+  return more;
+}
+
+/** One request forwards, for a timeline that is not the live one. */
+async function pageForward(
+  client: HistoryClient,
+  timeline: EventTimeline,
+  pageSize: number,
+): Promise<boolean> {
+  if (!canPageForward(timeline)) return false;
+  await client.paginateEventTimeline(timeline, { backwards: false, limit: pageSize });
+  return canPageForward(timeline);
+}
+
+/**
+ * Loads older events until this call has added `minMessages` messages, the
+ * room's start is reached, or `maxPages` requests are made: a room full of
+ * memberships and power levels still gets messages to show. Resolves false
+ * at the room's start.
+ *
+ * A number instead of options is one request for that many events, as in
+ * 0.2.
  */
 export async function loadOlder(
   client: HistoryClient,
   timeline: EventTimeline,
-  limit = defaultPageSize,
+  options: number | LoadOptions = {},
 ): Promise<boolean> {
-  if (!hasOlder(timeline)) return false;
-  return client.paginateEventTimeline(timeline, { backwards: true, limit });
+  if (typeof options === 'number') return pageBack(client, timeline, options);
+  const { minMessages = 10, maxPages = 5, pageSize = defaultPageSize } = options;
+  const start = messagesIn(timeline);
+  for (let page = 0; page < maxPages; page++) {
+    const more = await pageBack(client, timeline, pageSize);
+    if (!more || messagesIn(timeline) - start >= minMessages) break;
+  }
+  return hasOlder(timeline);
 }
 
-/** Loads up to `limit` later events into a timeline that is not the live one. */
+/**
+ * Loads later events into a timeline that is not the live one, e.g. the
+ * part of a room loaded around an older message, until this call has added
+ * `minMessages` messages, the timeline meets the live one, or `maxPages`
+ * requests are made. Resolves false once there is nothing newer to page in.
+ *
+ * A number instead of options is one request for that many events, as in
+ * 0.2.
+ */
 export async function loadNewer(
   client: HistoryClient,
   timeline: EventTimeline,
-  limit = defaultPageSize,
+  options: number | LoadOptions = {},
 ): Promise<boolean> {
-  return client.paginateEventTimeline(timeline, { backwards: false, limit });
+  if (typeof options === 'number') return pageForward(client, timeline, options);
+  const { minMessages = 10, maxPages = 5, pageSize = defaultPageSize } = options;
+  const start = messagesIn(timeline);
+  for (let page = 0; page < maxPages; page++) {
+    const more = await pageForward(client, timeline, pageSize);
+    if (!more || messagesIn(timeline) - start >= minMessages) break;
+  }
+  return canPageForward(timeline);
 }
 
 /**
@@ -124,14 +215,40 @@ export async function backfill(
   options: BackfillOptions = {},
 ): Promise<number> {
   const { minMessages = 20, maxPages = 5, pageSize = defaultPageSize } = options;
-  let messages = countMessages(timeline);
-  for (let page = 0; page < maxPages && messages < minMessages; page++) {
-    // The last page before the room's start still brings events: count first.
-    const more = await loadOlder(client, timeline, pageSize);
-    messages = countMessages(timeline);
-    if (!more) break;
+  for (let page = 0; page < maxPages && countMessages(timeline) < minMessages; page++) {
+    if (!(await pageBack(client, timeline, pageSize))) break;
   }
-  return messages;
+  return countMessages(timeline);
+}
+
+/**
+ * Loads messages on both sides of an event, about `minMessages / 2` each,
+ * at most `maxPages` requests each way: back to the room's start, and
+ * forwards until the timeline meets the live one. A timeline from `/context`
+ * holds only the event itself, as matrix-js-sdk asks for no context.
+ */
+export async function fillAround(
+  client: HistoryClient,
+  timeline: EventTimeline,
+  eventId: string,
+  options: BackfillOptions = {},
+): Promise<void> {
+  const { minMessages = 20, maxPages = 5, pageSize = defaultPageSize } = options;
+  const half = Math.ceil(minMessages / 2);
+  const split = () => {
+    const events = eventsFrom(timeline);
+    const at = events.findIndex((event) => event.getId() === eventId);
+    return {
+      before: events.slice(0, Math.max(at, 0)).filter(isShownMessage).length,
+      after: events.slice(at + 1).filter(isShownMessage).length,
+    };
+  };
+  for (let page = 0; page < maxPages && split().before < half; page++) {
+    if (!(await pageBack(client, timeline, pageSize))) break;
+  }
+  for (let page = 0; page < maxPages && split().after < half; page++) {
+    if (!(await pageForward(client, timeline, pageSize))) break;
+  }
 }
 
 /** Where {@link openAt} found the event. */
@@ -151,26 +268,31 @@ function holds(timeline: TimelineLike, eventId: string): boolean {
  * Finds the timeline to show a room in so that `eventId` is in it. A recent
  * event is reached by paging the live timeline back, at most `maxPages`
  * requests; an older one gets a timeline of its own, loaded around it with
- * the homeserver's `/context` API. The client must be created with
- * `timelineSupport`, as `startClient` does.
+ * the homeserver's `/context` API. Either way, about `minMessages` messages
+ * are then loaded around it ({@link fillAround}). The client must be created
+ * with `timelineSupport`, as `startClient` does.
  */
 export async function openAt(
   client: HistoryClient,
   room: HistoryRoom,
   eventId: string,
-  options: Pick<BackfillOptions, 'maxPages' | 'pageSize'> = {},
+  options: BackfillOptions = {},
 ): Promise<OpenAtResult> {
   const { maxPages = 5, pageSize = defaultPageSize } = options;
   const live = room.getLiveTimeline();
   for (let page = 0; !holds(live, eventId); page++) {
-    if (page >= maxPages || !(await loadOlder(client, live, pageSize))) break;
+    if (page >= maxPages || !(await pageBack(client, live, pageSize))) break;
   }
-  if (holds(live, eventId)) return { timeline: live, live: true };
+  if (holds(live, eventId)) {
+    await fillAround(client, live, eventId, options);
+    return { timeline: live, live: true };
+  }
 
   const timeline = await client
     .getEventTimeline(room.getUnfilteredTimelineSet(), eventId)
     .catch(() => null);
   if (!timeline) return null;
+  await fillAround(client, timeline, eventId, options);
   // The live timeline may have caught up while /context was on its way.
   return timeline === room.getLiveTimeline() ? { timeline, live: true } : { timeline, live: false };
 }
