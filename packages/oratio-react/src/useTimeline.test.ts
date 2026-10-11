@@ -24,41 +24,52 @@ type MatrixEvent = ReturnType<typeof fakeEvent>;
 const message = (body: string) => fakeEvent('m.room.message', { msgtype: 'm.text', body });
 const state = () => fakeEvent('m.room.power_levels', {});
 
+/** A timeline over `history[start..end)`, as the hook reads one. */
 interface FakeTimeline {
-  events: MatrixEvent[];
-  /** How many of `history` are older than what is loaded. */
   start: number;
-  history: MatrixEvent[];
-  forward: string | null;
+  end: number;
   next: FakeTimeline | null;
+  backToken: boolean;
   getEvents(): MatrixEvent[];
   getPaginationToken(dir: Direction): string | null;
+  setPaginationToken(token: string | null, dir: Direction): void;
   getNeighbouringTimeline(dir: Direction): FakeTimeline | null;
-}
-
-function timeline(history: MatrixEvent[], loaded: number): FakeTimeline {
-  const t: FakeTimeline = {
-    history,
-    start: Math.max(0, history.length - loaded),
-    events: [],
-    forward: null,
-    next: null,
-    getEvents: () => t.history.slice(t.start),
-    getPaginationToken: (dir) =>
-      dir === Direction.Backward ? (t.start > 0 ? `b${t.start}` : null) : t.forward,
-    getNeighbouringTimeline: (dir) => (dir === Direction.Forward ? t.next : null),
-  };
-  return t;
+  getTimelineSet(): { getLiveTimeline(): FakeTimeline };
 }
 
 /**
  * A client with one room, `!r`, whose live timeline holds the newest
- * `loaded` events of `history`. Paging back reads further into `history`, as
- * /messages would, and emits Room.timeline as the SDK does.
+ * `loaded` events of `history`. Paging moves a timeline's edges through
+ * `history`, as /messages would, and forwards stops at the live timeline and
+ * links to it, as matrix-js-sdk joins timelines. `/context` gives only the
+ * event, as matrix-js-sdk asks for `limit=0`. Paging emits Room.timeline.
  */
 function fakeClient(history: MatrixEvent[], loaded = 50) {
   const client = new EventEmitter() as EventEmitter & Record<string, unknown>;
-  const live = timeline(history, loaded);
+  const make = (start: number, end: number): FakeTimeline => {
+    const t: FakeTimeline = {
+      start,
+      end,
+      next: null,
+      backToken: start > 0,
+      getEvents: () => history.slice(t.start, t.end),
+      getPaginationToken: (dir) =>
+        dir === Direction.Backward
+          ? t.backToken
+            ? `b${t.start}`
+            : null
+          : t === live
+            ? null
+            : `f${t.end}`,
+      setPaginationToken: (token, dir) => {
+        if (dir === Direction.Backward) t.backToken = token !== null;
+      },
+      getNeighbouringTimeline: (dir) => (dir === Direction.Forward ? t.next : null),
+      getTimelineSet: () => ({ getLiveTimeline: () => live }),
+    };
+    return t;
+  };
+  const live = make(Math.max(0, history.length - loaded), history.length);
   const room = {
     roomId: '!r',
     getLiveTimeline: () => live,
@@ -67,19 +78,23 @@ function fakeClient(history: MatrixEvent[], loaded = 50) {
   client.getRoom = (id: string) => (id === '!r' ? room : null);
   client.paginateEventTimeline = vi.fn(
     async (t: FakeTimeline, opts: { backwards?: boolean; limit?: number }) => {
+      const limit = opts.limit ?? 50;
       if (opts.backwards) {
-        t.start = Math.max(0, t.start - (opts.limit ?? 50));
-        client.emit('Room.timeline');
-        return t.start > 0;
+        t.start = Math.max(0, t.start - limit);
+        t.backToken = t.start > 0;
+      } else {
+        t.end = Math.min(live.start, t.end + limit);
+        if (t.end === live.start) t.next = live;
       }
-      // Forwards: this fake meets the live timeline at once.
-      t.forward = null;
-      t.next = live;
       client.emit('Room.timeline');
-      return false;
+      return opts.backwards ? t.start > 0 : t.next === null;
     },
   );
-  client.getEventTimeline = vi.fn(async () => null);
+  client.getEventTimeline = vi.fn(async (_set: unknown, eventId: string) => {
+    const at = history.findIndex((event) => event.getId() === eventId);
+    if (at < 0) throw new Error('M_NOT_FOUND');
+    return at >= live.start ? live : make(at, at + 1);
+  });
   return {
     client: client as unknown as MatrixClient,
     live,
@@ -134,30 +149,50 @@ describe('useTimeline', () => {
     expect(result.current.hasNewer).toBe(false);
   });
 
-  it('opens at an old message in a timeline of its own, until it meets the latest', async () => {
-    const history = Array.from({ length: 1000 }, (_, i) => message(`${i}`));
+  it('opens at an old message with messages on both sides, until it meets the latest', async () => {
+    // Three messages, then 300 more; sync holds the last 50.
+    const history = Array.from({ length: 303 }, (_, i) => message(`${i}`));
     const { client, live, getEventTimeline } = fakeClient(history, 50);
-    // /context: the old message and a few around it, not linked to live yet.
-    const old = timeline(history.slice(95, 106), 11);
-    old.forward = 'f';
-    getEventTimeline.mockResolvedValue(old);
-    const around = history[100]?.getId();
+    const around = history[1]?.getId();
 
-    const { result } = renderHook(() => useTimeline('!r', { client, around, maxPages: 2 }));
-    await waitFor(() => expect(result.current.focusId).toBe(around));
-    expect(texts(result.current.messages)).toEqual(
-      history.slice(95, 106).map((e) => e.getContent().body),
+    const { result } = renderHook(() =>
+      useTimeline('!r', { client, around, minMessages: 20, maxPages: 2 }),
     );
+    await waitFor(() => expect(result.current.focusId).toBe(around));
+    await waitFor(() => expect(result.current.loadingOlder).toBe(false));
+    expect(getEventTimeline).toHaveBeenCalledTimes(1);
+    const at = result.current.messages.findIndex((m) => m.id === around);
+    expect(at).toBe(1);
+    expect(result.current.messages.length - at - 1).toBeGreaterThanOrEqual(10);
     expect(result.current.hasNewer).toBe(true);
 
-    // Scrolling on: the old part meets the live timeline and runs on into it.
+    // Scrolling on: each call brings messages, and the old part meets the
+    // live timeline and runs on into it.
+    const before = result.current.messages.length;
     await act(() => result.current.loadNewer());
-    expect(result.current.hasNewer).toBe(false);
-    expect(result.current.messages.at(-1)?.text).toBe('999');
+    expect(result.current.messages.length - before).toBeGreaterThanOrEqual(10);
+    while (result.current.hasNewer) await act(() => result.current.loadNewer({ maxPages: 50 }));
+    expect(result.current.messages.at(-1)?.text).toBe('302');
 
     act(() => result.current.jumpToLatest());
     expect(result.current.messages).toHaveLength(live.getEvents().length);
     expect(result.current.focusId).toBeUndefined();
+  });
+
+  it('loads at least ten messages per call through state', async () => {
+    // One message per 15 events: a page of 50 brings three or four.
+    const history = Array.from({ length: 200 }, (_, i) => [
+      message(`${i}`),
+      ...Array.from({ length: 14 }, state),
+    ]).flat();
+    const { client, paginate } = fakeClient(history, 300);
+    const { result } = renderHook(() => useTimeline('!r', { client }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(20));
+    expect(paginate).not.toHaveBeenCalled();
+
+    await act(() => result.current.loadOlder());
+    expect(result.current.messages.length).toBeGreaterThanOrEqual(30);
+    expect(paginate.mock.calls.length).toBeLessThanOrEqual(5);
   });
 
   it('says so when the message is not found', async () => {
