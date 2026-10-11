@@ -32,18 +32,25 @@ import {
 const live = room.getLiveTimeline();
 // When a room opens: page back until there are 20 messages, at most 5 requests.
 await backfill(client, live, { minMessages: 20, maxPages: 5 });
-// "Load older", or infinite scroll, until the room's start.
-if (hasOlder(live)) await loadOlder(client, live, 50);
-// A link to a message: page back to it, or load the part of the room around it.
-const found = await openAt(client, room, eventId); // { timeline, live } or null
+// "Load older", or infinite scroll: at least 10 more messages, however much
+// state lies between, at most 5 requests, and false at the room's start.
+if (hasOlder(live)) await loadOlder(client, live, { minMessages: 10, maxPages: 5 });
+// A link to a message: page back to it, or load the part of the room around
+// it, with about 20 messages on both sides.
+const found = await openAt(client, room, eventId, { minMessages: 20 }); // { timeline, live } or null
 const messages = toOratioMessages(eventsFrom(found?.timeline ?? live));
 ```
 
+Paging counts messages, not events: a room full of memberships, power levels
+and pins still gets messages to show. `loadOlder` and `loadNewer` take a
+number too, for one request of that many events, as in 0.2.
+
 `openAt` falls back to the homeserver's `/context` API, which needs a client
-created with `timelineSupport`, as `startClient` does. A timeline from it is
-not the live one: `loadNewer` pages it forwards, `hasNewer` turns false once
-it meets the live timeline, and `eventsFrom` runs on through the timelines it
-met. `toOratioMessages` skips edits (`m.replace`): matrix-js-sdk shows their
+created with `timelineSupport`, as `startClient` does. matrix-js-sdk asks it
+for the event alone, so `openAt` then pages both ways around it
+(`fillAround`). A timeline from it is not the live one: `loadNewer` pages it
+forwards, `hasNewer` turns false once it meets the live timeline, and
+`eventsFrom` runs on through the timelines it met. `toOratioMessages` skips edits (`m.replace`): matrix-js-sdk shows their
 text in place of the message they edit.
 
 ## Status
