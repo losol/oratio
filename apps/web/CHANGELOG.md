@@ -1,5 +1,13 @@
 # @eventuras/oratio-web
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [ba1f02c]
+  - @eventuras/oratio-core@0.3.0
+  - @eventuras/oratio-react@0.3.0
+
 ## 0.0.2
 
 ### Patch Changes
