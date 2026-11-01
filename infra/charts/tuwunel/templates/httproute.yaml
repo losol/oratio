@@ -24,6 +24,9 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: {{ include "tuwunel.fullname" . }}
+        - group: ""
+          kind: Service
+          name: {{ include "tuwunel.fullname" . }}
           port: {{ .Values.port }}
+          weight: 1
 {{- end }}
