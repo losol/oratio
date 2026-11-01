@@ -1,0 +1,116 @@
+# Dependabot version updates, in the style of eventuras.
+#
+# Supply-chain delay: no update PR for a release younger than 10 days, the
+# same window as `minimumReleaseAge` in pnpm-workspace.yaml. First-party
+# @eventuras/* packages skip the wait, as `minimumReleaseAgeExclude` does there.
+# Change both together.
+#
+# Security updates are a separate mechanism, turned on in the repository
+# settings, and are not held back by the cooldown.
+version: 2
+
+updates:
+  # npm: one root pnpm-lock.yaml covers apps/* and packages/*, so a single
+  # entry at "/" updates the whole workspace.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Oslo"
+    commit-message:
+      prefix: "chore(deps)"
+    cooldown:
+      default-days: 10
+      exclude:
+        - "@eventuras/*"
+    ignore:
+      # Node types follow the Node major in .nvmrc and engines (24). Bump them
+      # by hand together with the next LTS.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # A dependency joins the first group it matches: keep the catch-all last.
+      eventuras:
+        patterns:
+          - "@eventuras/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      react-router:
+        patterns:
+          - "react-router"
+          - "@react-router/*"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+          - "@vitest/*"
+      testing-library:
+        patterns:
+          - "@testing-library/*"
+          - "jsdom"
+      # Everything else: remaining minor and patch bumps in one PR. Other
+      # major bumps open one PR each.
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions are pinned to commit SHAs with a version comment;
+  # Dependabot updates both.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "06:00"
+      timezone: "Europe/Oslo"
+    commit-message:
+      prefix: "chore(deps)"
+    cooldown:
+      default-days: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Base images of the web image (node build stage, Caddy).
+  - package-ecosystem: "docker"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Oslo"
+    commit-message:
+      prefix: "chore(deps)"
+    cooldown:
+      default-days: 10
+    ignore:
+      # Only even Node majors become LTS, and Dependabot cannot tell them
+      # apart. Move to the next LTS by hand, with .nvmrc and engines.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  # Helm charts: pinned image tags in values.yaml, such as the rclone backup
+  # sidecar. Images whose tag is left empty (set at deploy time, or taken from
+  # appVersion) are skipped.
+  - package-ecosystem: "helm"
+    directories:
+      - "/infra/charts/*"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Oslo"
+    commit-message:
+      prefix: "chore(deps)"
+    cooldown:
+      default-days: 10
