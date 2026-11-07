@@ -17,7 +17,7 @@ RUN pnpm turbo run build --filter=@eventuras/oratio-web...
 RUN node apps/web/scripts/csp-hashes.mjs apps/web/build/client > /repo/csp-script-hashes
 
 # 2. Serve.
-FROM caddy:2.11.4-alpine
+FROM caddy:2.11.6-alpine
 # The official binary carries cap_net_bind_service for ports below 1024. We
 # listen on 8080, and with all capabilities dropped (as the chart does) the
 # kernel refuses to run a binary that asks for one. Remove it.
