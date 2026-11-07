@@ -17,11 +17,11 @@
     "isbot": "^5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router": "^8.4.0"
+    "react-router": "^8.5.1"
   },
   "devDependencies": {
     "@eventuras/typescript-config": "^1.1.0",
-    "@react-router/dev": "^8.4.0",
+    "@react-router/dev": "^8.5.1",
     "@types/node": "^24.13.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
