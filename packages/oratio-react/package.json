@@ -37,9 +37,9 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@eventuras/ratio-ui": "^2.31.1",
-    "@eventuras/typescript-config": "^1.1.0",
-    "@eventuras/vite-config": "^0.4.0",
+    "@eventuras/ratio-ui": "^2.36.0",
+    "@eventuras/typescript-config": "^1.1.1",
+    "@eventuras/vite-config": "^0.5.0",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
